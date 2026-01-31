@@ -543,37 +543,42 @@
             // Add user message to UI
             setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
             
-            // Build message parts for Gemini
-            const messageParts = [];
+            // Build message for Gemini - different structure if image is present
+            let newGeminiHistory;
             
-            // Add image if present
             if (selectedImage) {
-              messageParts.push({
-                inline_data: {
-                  mime_type: 'image/jpeg',
-                  data: selectedImage
+              // For messages with images, use inline_data format
+              const messageText = input.trim() || 'I took a photo of a wine label. Can you extract all the details and help me add it to my cellar?';
+              
+              newGeminiHistory = [
+                ...geminiHistory,
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      inline_data: {
+                        mime_type: 'image/jpeg',
+                        data: selectedImage
+                      }
+                    },
+                    {
+                      text: messageText
+                    }
+                  ]
                 }
-              });
+              ];
+            } else {
+              // Text-only message
+              newGeminiHistory = [
+                ...geminiHistory,
+                {
+                  role: 'user',
+                  parts: [{ text: input.trim() }]
+                }
+              ];
             }
-            
-            // Add text
-            if (input.trim()) {
-              messageParts.push({ text: input.trim() });
-            } else if (selectedImage) {
-              messageParts.push({ text: 'I took a photo of a wine label. Can you extract all the details and help me add it to my cellar?' });
-            }
-            
-            // Add to Gemini history
-            const newGeminiHistory = [
-              ...geminiHistory,
-              {
-                role: 'user',
-                parts: messageParts
-              }
-            ];
             
             // Clear image after adding to message
-            const imageData = selectedImage;
             removeImage();
             
             setLoading(true);
@@ -588,8 +593,7 @@
                   'Content-Type': 'text/plain',
                 },
                 body: JSON.stringify({ 
-                  history: newGeminiHistory,
-                  hasImage: !!imageData // Flag to help backend know image is present
+                  history: newGeminiHistory
                 })
               });
 
