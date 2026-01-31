@@ -496,9 +496,6 @@
           const messagesEndRef = React.useRef(null);
           const fileInputRef = React.useRef(null);
 
-          const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxSNo0ib-i8HOSOr4eoCpt2dm0P6hI26VqLddhA4zAiIuYxLjTfrllD4C2CFf8xMKrV/exec';
-          const SHEET_API_URL = GEMINI_ENDPOINT; // Same endpoint, different action
-
           const scrollToBottom = () => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
           };
@@ -775,6 +772,10 @@
             </div>
           );
         };
+
+        // API Configuration
+        const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxSNo0ib-i8HOSOr4eoCpt2dm0P6hI26VqLddhA4zAiIuYxLjTfrllD4C2CFf8xMKrV/exec';
+        const SHEET_API_URL = GEMINI_ENDPOINT; // Same endpoint, different action
 
         const RaveCave = () => {
           const [wines, setWines] = useState([]);
