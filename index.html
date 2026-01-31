@@ -1255,10 +1255,17 @@
               <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
                 {imageUrl ? (
                   <img 
-                    src={imageUrl} 
+                    src={imageUrl.replace('/uc?id=', '/thumbnail?id=').replace(/$/g, '&sz=w500')} 
                     alt={wine['Cépage']}
                     className="w-full h-full object-cover"
                     style={{clipPath: 'inset(0)'}}
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      // Fallback: try direct Drive link if thumbnail fails
+                      if (!e.target.src.includes('/file/d/')) {
+                        e.target.src = imageUrl.replace('/uc?id=', '/file/d/').replace(/$/g, '/preview');
+                      }
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full bg-white flex items-center justify-center">
