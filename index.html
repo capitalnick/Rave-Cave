@@ -862,9 +862,9 @@
             
             if (isNaN(from) || isNaN(until)) return 'Unknown';
             
-            if (currentYear >= from && currentYear <= until) return 'PEAK';
-            if (currentYear < from) return 'CELLAR';
-            return 'DRINK';
+            if (currentYear >= from && currentYear <= until) return '🍷 Drink Now';
+            if (currentYear < from) return '🟢 Hold';
+            return '⚠️ Past Peak';
           };
 
           const getWineColors = (wineType) => {
@@ -955,11 +955,8 @@
               const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
               const matchesMaturity = !filters.maturity.length || filters.maturity.includes(maturity);
 
-              const vivinoRating = parseFloat(wine['Vivino Rating']);
-              const matchesVivino = !filters.vivinoRating || (vivinoRating >= 4.0);
-
-              return matchesSearch && matchesVintage && matchesType && matchesCepage && 
-                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity && matchesVivino;
+              return matchesSearch && matchesType && matchesCepage && 
+                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity;
             });
           }, [wines, searchTerm, filters]);
 
@@ -1105,33 +1102,12 @@
 
                     <div className="space-y-2">
                       <h3 className="text-xs font-mono uppercase tracking-widest" style={{color: '#FF006E'}}>
-                        ★ RATING
-                      </h3>
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={filters.vivinoRating}
-                          onChange={() => toggleFilter('vivinoRating')}
-                          style={{width: '18px', height: '18px', border: '2px solid black'}}
-                        />
-                        <span className="font-mono text-xs uppercase group-hover:text-[#CCFF00] transition-colors" style={{color: 'white'}}>
-                          4.0+ VIVINO
-                        </span>
-                      </label>
-                    </div>
 
                     <BrutalFilterSection
-                      title="MATURITY"
-                      options={['PEAK', 'CELLAR', 'DRINK']}
-                      selected={filters.maturity}
-                      onToggle={(val) => toggleFilter('maturity', val)}
-                    />
-
-                    <BrutalFilterSection
-                      title="VINTAGE"
-                      options={filterOptions.vintage || []}
-                      selected={filters.vintage}
-                      onToggle={(val) => toggleFilter('vintage', val)}
+                      title="GRAPE"
+                      options={filterOptions.cepage || []}
+                      selected={filters.cepage}
+                      onToggle={(val) => toggleFilter('cepage', val)}
                     />
 
                     <BrutalFilterSection
@@ -1142,17 +1118,10 @@
                     />
 
                     <BrutalFilterSection
-                      title="GRAPE"
-                      options={filterOptions.cepage || []}
-                      selected={filters.cepage}
-                      onToggle={(val) => toggleFilter('cepage', val)}
-                    />
-
-                    <BrutalFilterSection
-                      title="REGION"
-                      options={filterOptions.region || []}
-                      selected={filters.region}
-                      onToggle={(val) => toggleFilter('region', val)}
+                      title="MATURITY"
+                      options={['🍷 Drink Now', '🟢 Hold', '⚠️ Past Peak']}
+                      selected={filters.maturity}
+                      onToggle={(val) => toggleFilter('maturity', val)}
                     />
 
                     <BrutalFilterSection
@@ -1160,6 +1129,13 @@
                       options={filterOptions.country || []}
                       selected={filters.country}
                       onToggle={(val) => toggleFilter('country', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="REGION"
+                      options={filterOptions.region || []}
+                      selected={filters.region}
+                      onToggle={(val) => toggleFilter('region', val)}
                     />
                   </div>
                 </aside>
@@ -1223,30 +1199,30 @@
           const [expanded, setExpanded] = useState(false);
 
           return (
-            <div className="space-y-2 border-t-3 border-[#FF006E] pt-4">
+            <div className="space-y-3 border-t border-[#FF006E] pt-4">
               <button
                 onClick={() => setExpanded(!expanded)}
                 className="flex items-center justify-between w-full group"
               >
-                <h3 className="text-xs font-mono uppercase tracking-widest group-hover:text-[#CCFF00] transition-colors"
+                <h3 className="text-sm font-mono uppercase tracking-widest font-bold group-hover:text-[#CCFF00] transition-colors"
                     style={{color: '#FF006E'}}>
                   {title}
                 </h3>
-                <ChevronIcon className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} 
+                <ChevronIcon className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} 
                              style={{color: '#CCFF00'}} />
               </button>
               
               {expanded && (
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {options.map(option => (
                     <label key={option} className="flex items-center gap-2 cursor-pointer group">
                       <input
                         type="checkbox"
                         checked={selected.includes(option)}
                         onChange={() => onToggle(option)}
-                        style={{width: '18px', height: '18px', border: '2px solid black'}}
+                        style={{width: '20px', height: '20px', border: '2px solid black'}}
                       />
-                      <span className="font-mono text-xs uppercase group-hover:text-[#CCFF00] transition-colors"
+                      <span className="font-mono text-sm group-hover:text-[#CCFF00] transition-colors"
                             style={{color: 'white'}}>
                         {option}
                       </span>
@@ -1344,7 +1320,7 @@
                   )}
                   
                   <div className={`sticker-badge inline-flex items-center gap-1 px-3 py-1.5 border-2 border-black`}
-                       style={{backgroundColor: maturity === 'PEAK' ? '#CCFF00' : maturity === 'CELLAR' ? '#00D9FF' : '#FF006E'}}>
+                       style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : '#FF006E'}}>
                     <ClockIcon className="text-black" />
                     <span className="font-mono text-xs font-bold text-black">
                       {maturity}
@@ -1531,7 +1507,7 @@
                     )}
                     
                     <div className="sticker-badge inline-flex items-center gap-2 px-5 py-3 border-4 border-black"
-                         style={{backgroundColor: maturity === 'PEAK' ? '#CCFF00' : maturity === 'CELLAR' ? '#00D9FF' : '#FF006E'}}>
+                         style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : '#FF006E'}}>
                       <ClockIcon className="w-6 h-6 text-black" />
                       <span className="font-display text-2xl text-black">
                         {maturity}
