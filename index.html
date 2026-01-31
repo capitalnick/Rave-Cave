@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAVE CAVE 🍷⚡</title>
     
+    <!-- Favicon - acid yellow wine glass tilted 10° on black circle -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23000000'/%3E%3Cg transform='translate(32 32) rotate(10) translate(-32 -32)'%3E%3Cg transform='translate(12 8)'%3E%3Cpath fill='none' stroke='%23CCFF00' stroke-width='3' stroke-linecap='square' stroke-linejoin='miter' d='M9 2h6v7c0 3.5-2.5 6-6 6s-6-2.5-6-6V2m0 13h12M7 22h10'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Google Fonts: Space Grotesk (brutalist display) + IBM Plex Mono (data) -->
@@ -494,6 +497,7 @@
           const fileInputRef = React.useRef(null);
 
           const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxSNo0ib-i8HOSOr4eoCpt2dm0P6hI26VqLddhA4zAiIuYxLjTfrllD4C2CFf8xMKrV/exec';
+          const SHEET_API_URL = GEMINI_ENDPOINT; // Same endpoint, different action
 
           const scrollToBottom = () => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1335,9 +1339,83 @@
           const vivinoRating = parseFloat(wine['Vivino Rating']);
           const imageUrl = wine['Label image'];
 
+          // Track which field is being edited
+          const [editingField, setEditingField] = React.useState(null);
+          const [editValue, setEditValue] = React.useState('');
+          const [updating, setUpdating] = React.useState(false);
+
           const allFields = Object.entries(wine).filter(([key, value]) => 
-            value && value.toString().trim() !== '' && key !== 'Label image'
+            key !== 'Label image'
           );
+
+          const handleFieldClick = (key, value) => {
+            setEditingField(key);
+            setEditValue(value || '');
+          };
+
+          const handleUpdate = async (key) => {
+            setUpdating(true);
+            try {
+              // Find the row number (wine index + 2 because of header row and 0-indexing)
+              const wineIndex = wines.findIndex(w => 
+                w.Producer === wine.Producer && 
+                w.Vintage === wine.Vintage && 
+                w['Wine name'] === wine['Wine name']
+              );
+              
+              if (wineIndex === -1) {
+                alert('Wine not found in data');
+                return;
+              }
+
+              const rowNumber = wineIndex + 2; // +2 for header and 0-indexing
+              
+              // Find column index
+              const columnMap = {
+                'Producer': 0, 'Wine name': 1, 'Vintage': 2, 'Wine type': 3,
+                'Cépage': 4, 'Blend %': 5, 'Appellation': 6, 'Region': 7,
+                'Country': 8, 'Quantity': 9, 'Drink From': 10, 'Drink Until': 11,
+                'Maturity': 12, 'Tasting Notes': 13, 'My Rating': 14,
+                'Vivino Rating': 15, 'Personal Note': 16, 'Link to wine': 17,
+                'Label image': 18
+              };
+              
+              const columnIndex = columnMap[key];
+              
+              // Update via Apps Script
+              const response = await fetch(SHEET_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'updateCell',
+                  row: rowNumber,
+                  column: columnIndex,
+                  value: editValue
+                })
+              });
+
+              if (!response.ok) {
+                throw new Error('Update failed');
+              }
+
+              // Update local data
+              wine[key] = editValue;
+              setWines([...wines]); // Trigger re-render
+              setEditingField(null);
+              
+            } catch (error) {
+              console.error('Update error:', error);
+              alert('Failed to update. Please try again.');
+            } finally {
+              setUpdating(false);
+            }
+          };
+
+          const handleKeyPress = (e, key) => {
+            if (e.key === 'Enter') {
+              handleUpdate(key);
+            }
+          };
 
           return (
             <div 
@@ -1353,9 +1431,21 @@
                   {imageUrl ? (
                     <div className="relative h-96 overflow-hidden bg-black">
                       <img 
-                        src={imageUrl} 
+                        src={imageUrl.includes('drive.google.com') 
+                          ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
+                          : imageUrl
+                        } 
                         alt={wine['Wine name']}
                         className="w-full h-full object-contain"
+                        onError={(e) => {
+                          if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
+                            e.target.dataset.fallbackAttempted = 'true';
+                            const fileIdMatch = imageUrl.match(/id=([^&]+)/);
+                            if (fileIdMatch) {
+                              e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                            }
+                          }
+                        }}
                       />
                     </div>
                   ) : (
@@ -1425,7 +1515,7 @@
                     )}
                   </div>
 
-                  {/* MODULAR DATA BLOCKS */}
+                  {/* EDITABLE DATA BLOCKS */}
                   <div className="grid md:grid-cols-2 gap-6 pt-8 border-t-8 border-black">
                     {allFields.map(([key, value]) => (
                       <div key={key} className="space-y-2 p-4 border-4 border-black bg-white">
@@ -1434,7 +1524,35 @@
                           {key}
                         </dt>
                         <dd className="font-mono text-base text-black">
-                          {value}
+                          {editingField === key ? (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyPress={(e) => handleKeyPress(e, key)}
+                                onFocus={(e) => e.target.select()}
+                                className="flex-1 px-2 py-1 border-2 border-black font-mono"
+                                autoFocus
+                                disabled={updating}
+                              />
+                              <button
+                                onClick={() => handleUpdate(key)}
+                                disabled={updating}
+                                className="px-4 py-1 bg-[#CCFF00] border-2 border-black font-mono text-sm uppercase font-bold hover:bg-[#FF006E] hover:text-white transition-colors disabled:opacity-50"
+                              >
+                                {updating ? '...' : 'Update'}
+                              </button>
+                            </div>
+                          ) : (
+                            <span 
+                              onClick={() => handleFieldClick(key, value)}
+                              className="cursor-pointer hover:bg-yellow-100 block p-1 -m-1"
+                            >
+                              {value || '(empty)'}
+                            </span>
+                          )}
+                        </dd>
                         </dd>
                       </div>
                     ))}
