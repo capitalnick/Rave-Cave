@@ -1385,16 +1385,11 @@
               
               const columnIndex = columnMap[key];
               
-              // Update via Apps Script
-              const response = await fetch(SHEET_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'updateCell',
-                  row: rowNumber,
-                  column: columnIndex,
-                  value: editValue
-                })
+              // Update via Apps Script using GET to avoid CORS
+              const updateUrl = `${SHEET_API_URL}?action=updateCell&row=${rowNumber}&column=${columnIndex}&value=${encodeURIComponent(editValue)}`;
+              
+              const response = await fetch(updateUrl, {
+                method: 'GET'
               });
 
               console.log('Update response status:', response.status);
