@@ -1,832 +1,1586 @@
-/**
- * RAVE CAVE - Wine Cellar Management System
- * Sommelier Agent - Google Apps Script Backend
- * 
- * Version: 2.0 - Optimized & Streamlined
- * Last Updated: January 31, 2026
- * Model: Gemini 3 Flash Preview
- * 
- * Features:
- * - AI wine label recognition with photo upload to Google Drive
- * - Natural conversation sommelier assistant with unlimited conversation depth
- * - Automated drinking window, maturity status, and tasting notes
- * - Duplicate wine detection (updates quantity instead of creating duplicates)
- * - Multi-turn conversation support with full context retention
- * - Optimized performance (removed debug overhead, streamlined API calls)
- * 
- * @OnlyCurrentDoc false
- */
-
-/**
- * Explicitly declare required OAuth scopes
- * This triggers authorization prompt for Drive access
- */
-// @ts-ignore
-var SCOPES = [
-  'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/script.external_request'
-];
-
-const SHEET_NAME = 'Master_Wine_Cellar_Complete'; // UPDATE THIS to match your Google Sheet tab name
-
-/**
- * Main chat function - handles conversation with Gemini
- * @param {Array} history - Conversation history in Gemini format
- * @param {number} retryCount - Current retry attempt (for exponential backoff)
- * @returns {string} AI response text
- */
-function chatWithSommelier(history, retryCount = 0) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-  
-  // Get current wine inventory for context
-  const inventoryContext = getInventoryContext();
-  
-  // System instruction with inventory context
-  const systemInstruction = `You are a sophisticated French sommelier with deep wine knowledge and expertise in building well-rounded wine collections.
-
-🍷 CONVERSATION STYLE:
-- Be warm, knowledgeable, and conversational - like a friendly wine expert at a dinner party
-- Share your wine knowledge naturally without being rigid or overly formal
-- When asked about wines (ratings, quality, characteristics), give your expert opinion based on your knowledge
-- You can discuss wine quality, typical ratings, producer reputation, and vintage characteristics from your training
-- Only mention searching the web if you truly don't know something or need very current pricing/availability
-- For questions like "what would you rate this wine?" - give an honest assessment based on producer, region, vintage, style
-- Be direct and helpful, not cautious or evasive
-
-EXAMPLE NATURAL RESPONSES:
-User: "What would you rate the 2021 Kilikanoon Parable?"
-Good: "The Parable is one of Kilikanoon's premium offerings - I'd rate it around 93-95/100. It's a beautifully crafted Clare Valley Shiraz with excellent structure and aging potential. The 2021 vintage was quite strong in the Clare Valley, so this should be drinking beautifully in 3-5 years and will cellar well for 10-15."
-Bad: "I recommend checking Wine-Searcher.com for ratings..."
-
-User: "Is this wine any good?"
-Good: "Absolutely! Penfolds Grange is one of Australia's most iconic wines - consistently rated 95-100 points. It's a benchmark Shiraz that ages magnificently."
-Bad: "I suggest exploring Vivino.com for community reviews..."
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAVE CAVE 🍷⚡</title>
     
-THE COMPLETE CELLAR INVENTORY IS LISTED BELOW:
-${inventoryContext}
-
-⚠️ CRITICAL - HOW TO ANSWER QUANTITY QUESTIONS:
-When asked "how many X do I have?", follow these steps:
-1. SEARCH the inventory list above for the wine name
-2. FIND the line that matches
-3. READ the "Quantity: X bottles" on that line
-4. ANSWER with that number
-
-EXAMPLE:
-User: "How many Block 6 Riesling do I have?"
-You: [Search list above for "Block 6"] → Find: "2019 Colmar Estate "Block 6 Riseling" from Orange | Quantity: 2 bottles"
-You answer: "You have 2 bottles of the 2019 Colmar Estate Block 6 Riesling."
-
-DO NOT call getInventory, checkInventory, or any other function to answer quantity questions. The answer is RIGHT THERE in the list above.
-
-📸 WINE LABEL PHOTO ANALYSIS & FIELD REQUIREMENTS:
-
-When user sends a photo of a wine label, extract and estimate ALL fields:
-
-**MANDATORY FIELDS (must ask if unclear):**
-- Producer: The winery/maker name (REQUIRED - ask if unclear)
-- Vintage: Year or "NV" for non-vintage blends (REQUIRED - ask if unclear)
-- Wine Type: MUST be exactly one of: "Red", "White", "Sparkling", "Dessert", "Fortified", "Orange", "Rosé" (REQUIRED)
-- Cépage: Grape variety (REQUIRED - ask if unclear)
-- Blend %: "100%" if single varietal, otherwise estimate percentages (REQUIRED)
-- Region: Growing region (REQUIRED - ask if unclear)
-- Country: Country of origin (REQUIRED - ask if unclear)
-
-**OPTIONAL FIELDS:**
-- Wine Name: ONLY if wine has special designation (e.g., "Hill of Grace", "Grange") - leave blank otherwise
-- Appellation: If visible on label
-
-**FIELDS YOU MUST ESTIMATE:**
-- Drink From: Earliest optimal drinking year (estimate based on vintage, region, grape)
-- Drink Until: Latest optimal drinking year (estimate based on wine type and quality level)
-- Maturity: MUST be exactly one of: "🟢 Hold", "🍷 Drink Now", "⚠️ Past Peak"
-  * Use "🟢 Hold" for wines still developing (not yet at peak)
-  * Use "🍷 Drink Now" for wines at their peak drinking window
-  * Use "⚠️ Past Peak" for wines past their optimal drinking window
-- Tasting Notes: Generate concise notes using 1-2 word descriptors separated by commas. Max 150 chars. Examples: "blackberry, cedar, tobacco" or "citrus, mineral, crisp"
-
-**CONFIRMATION FLOW:**
-1. Extract all visible details from photo
-2. Estimate drinking windows and generate tasting notes
-3. Present concise confirmation: "📸 **[YEAR] [PRODUCER] [WINE NAME]**
-   - Type: [TYPE] | Region: [REGION], [COUNTRY]
-   - Grape: [CÉPAGE] ([BLEND%])
-   - Drink: [YEAR-YEAR] | Maturity: [STATUS]
-   - Notes: [notes]
-   
-   How many bottles?"
-4. Wait for quantity
-5. Call addWine with ALL fields (leave vivinoRating blank)
-
-**Example:**
-User: [sends photo]
-You: "📸 **2019 Penfolds Grange**
-- Type: Red | Region: Barossa Valley, Australia  
-- Grape: Shiraz (100%)
-- Drink: 2025-2045 | Maturity: 🟢 Hold
-- Notes: blackcurrant, eucalyptus, dark chocolate, oak, powerful tannins
-
-How many bottles?"
-
-User: "add 3"
-You: [Call addWine with all fields, vivinoRating blank]
-
-User: "2 bottles"
-You: [Call addWine with wineType="Red", maturity="🟢 Hold", vivinoRating="4.5", and all other fields]
-
-YOUR THREE TOOLS:
-1. addWine - Use after confirming wine details from photo or manual entry
-2. removeWine - ONLY when user drinks/opens a bottle
-3. searchWineRecommendations - ONLY for wine buying research
-
-❌ FORBIDDEN FUNCTIONS (DO NOT CALL THESE):
-getInventory, checkInventory, searchWines, listWines, getWineInventory - NONE OF THESE EXIST
-
-CAPABILITIES:
-- Extract wine data from label photos
-- Answer inventory questions by READING the list above
-- Analyze collection gaps and suggest purchases
-- Provide pairing recommendations
-
-FORMATTING:
-Use **bold**, *, ###, --- for readable formatting
-
-Be accurate, helpful, and passionate about wine!`;
-
-  // Clean history: remove empty messages but keep image messages
-  let cleanedHistory = history.filter(item => {
-    if (!item.parts || item.parts.length === 0) {
-      return false; // Remove if no parts
-    }
+    <!-- Favicon - acid yellow wine glass tilted 10° on black circle -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23000000'/%3E%3Cg transform='translate(32 32) rotate(10) translate(-32 -32)'%3E%3Cg transform='translate(12 8)'%3E%3Cpath fill='none' stroke='%23CCFF00' stroke-width='3' stroke-linecap='square' stroke-linejoin='miter' d='M9 2h6v7c0 3.5-2.5 6-6 6s-6-2.5-6-6V2m0 13h12M7 22h10'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
     
-    // Check if message has at least one valid part (text or image)
-    const hasValidPart = item.parts.some(part => {
-      // Has text?
-      if (part.text && part.text.trim() !== "") return true;
-      // Has image?
-      if (part.inline_data) return true;
-      return false;
-    });
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    return hasValidPart;
-  });
-
-  // Use full conversation history - no artificial limits
-  // Gemini can handle long conversations, and deep wine discussions are valuable
-  let contents = cleanedHistory;
-
-  // Build the payload with proper systemInstruction
-  const payload = {
-    contents: contents,
-    systemInstruction: {
-      parts: [{
-        text: systemInstruction
-      }]
-    },
-    tools: [{
-      function_declarations: [
-        {
-          name: "addWine",
-          description: "Adds a new wine to the cellar after user confirms the details extracted from a photo or provided manually. You must estimate drinking windows, maturity, and generate tasting notes.",
-          parameters: {
-            type: "OBJECT",
-            properties: {
-              producer: { type: "STRING", description: "Wine producer/maker (REQUIRED)" },
-              wineName: { type: "STRING", description: "Specific wine name/cuvée (optional - only if wine has a special designation like 'Hill of Grace')" },
-              vintage: { type: "STRING", description: "Vintage year or 'NV' for non-vintage blends (REQUIRED)" },
-              wineType: { 
-                type: "STRING", 
-                description: "Wine type (REQUIRED) - MUST be one of: 'Red', 'White', 'Sparkling', 'Dessert', 'Fortified', 'Orange', 'Rosé'",
-                enum: ["Red", "White", "Sparkling", "Dessert", "Fortified", "Orange", "Rosé"]
-              },
-              cepage: { type: "STRING", description: "Grape variety/varieties (REQUIRED)" },
-              blendPercent: { type: "STRING", description: "Blend percentages (REQUIRED - default to '100%' if single varietal)" },
-              appellation: { type: "STRING", description: "Appellation/AVA (optional)" },
-              region: { type: "STRING", description: "Wine region (REQUIRED)" },
-              country: { type: "STRING", description: "Country of origin (REQUIRED)" },
-              quantity: { type: "NUMBER", description: "Number of bottles (default 1)" },
-              drinkFrom: { type: "STRING", description: "Estimated earliest drinking year (REQUIRED - you must estimate)" },
-              drinkUntil: { type: "STRING", description: "Estimated latest drinking year (REQUIRED - you must estimate)" },
-              maturity: { 
-                type: "STRING", 
-                description: "Current maturity status (REQUIRED) - MUST be one of: '🟢 Hold', '🍷 Drink Now', '⚠️ Past Peak'",
-                enum: ["🟢 Hold", "🍷 Drink Now", "⚠️ Past Peak"]
-              },
-              tastingNotes: { type: "STRING", description: "Concise tasting notes - 1-2 word descriptors separated by commas, max 150 chars (REQUIRED - you must generate)" },
-              driveImageId: { type: "STRING", description: "Google Drive file ID for label image" }
-            },
-            required: ["producer", "vintage", "wineType", "cepage", "blendPercent", "region", "country", "drinkFrom", "drinkUntil", "maturity", "tastingNotes"]
-          }
-        },
-        {
-          name: "removeWine",
-          description: "Removes one bottle from inventory when wine is consumed. Decrements quantity by 1, or deletes row if last bottle.",
-          parameters: {
-            type: "OBJECT",
-            properties: { 
-              producer: { 
-                type: "STRING",
-                description: "The wine producer/maker name"
-              }, 
-              vintage: { 
-                type: "NUMBER",
-                description: "The vintage year of the wine"
-              }
-            },
-            required: ["producer", "vintage"]
-          }
-        },
-        {
-          name: "searchWineRecommendations",
-          description: "Search the web for wine recommendations, buying guides, and information about specific wine regions or styles. Use this to help with purchase decisions and gap analysis.",
-          parameters: {
-            type: "OBJECT",
-            properties: {
-              query: {
-                type: "STRING",
-                description: "Search query for wine information (e.g. 'best Burgundy wines under $100', 'classic Barolo producers', 'Italian red wine regions')"
-              }
-            },
-            required: ["query"]
-          }
+    <!-- Google Fonts: Space Grotesk (brutalist display) + IBM Plex Mono (data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      ]
-    }]
-  };
-
-  try {
-    const response = UrlFetchApp.fetch(url, {
-      method: 'POST',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    
-    const result = JSON.parse(response.getContentText());
-    Logger.log('Gemini API Response: ' + JSON.stringify(result));
-
-    // Handle API errors
-    if (result.error) {
-      Logger.log("API Error: " + result.error.message);
-      
-      // Return full error details for debugging
-      const errorDetails = "Code: " + result.error.code + "\nMessage: " + result.error.message + "\nStatus: " + result.error.status;
-      
-      // Check if overloaded and retry
-      if ((result.error.message.includes("overloaded") || result.error.code === 503 || result.error.code === 429) && retryCount < 3) {
-        Logger.log("API overloaded (from response), retrying... (attempt " + (retryCount + 1) + ")");
-        Utilities.sleep(Math.pow(2, retryCount) * 1000);
-        return chatWithSommelier(history, retryCount + 1);
-      }
-      
-      return "🍷 API Error:\n" + errorDetails;
-    }
-
-    // Check for valid response
-    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-      Logger.log("No valid response from Gemini. Full result: " + JSON.stringify(result));
-      return "🤔 No response from AI. Please try again.";
-    }
-
-    let candidate = result.candidates[0];
-    let part = candidate.content.parts[0];
-    
-    Logger.log("Candidate content: " + JSON.stringify(candidate.content));
-    Logger.log("First part: " + JSON.stringify(part));
-
-    // Handle Function Calls (tool use)
-    if (part.functionCall) {
-      const call = part.functionCall;
-      let toolData;
-      
-      if (call.name === "addWine") {
-        toolData = addWine(call.args);
-      } else if (call.name === "removeWine") {
-        toolData = runRemoveWine(call.args);
-      } else if (call.name === "searchWineRecommendations") {
-        toolData = searchWineRecommendations(call.args);
-      } else {
-        return "Unknown function requested: " + call.name;
-      }
-
-      // Send function response back to Gemini for final natural language answer
-      const secondPayload = {
-        contents: [
-          ...payload.contents,
-          candidate.content, // The function call
-          { 
-            role: "function", 
-            parts: [{ 
-              functionResponse: { 
-                name: call.name, 
-                response: { 
-                  name: call.name,
-                  content: toolData 
-                } 
-              } 
-            }] 
-          }
-        ],
-        tools: payload.tools // Keep tools available
-      };
-
-      const secondResponse = UrlFetchApp.fetch(url, {
-        method: 'POST',
-        contentType: 'application/json',
-        payload: JSON.stringify(secondPayload),
-        muteHttpExceptions: true
-      });
-      
-      const secondResult = JSON.parse(secondResponse.getContentText());
-      Logger.log('Second response after function call: ' + JSON.stringify(secondResult));
-      
-      // Check for errors in second response
-      if (secondResult.error) {
-        Logger.log("Error in second call: " + secondResult.error.message);
-        // Return the tool result directly if Gemini can't format it
-        return toolData;
-      }
-      
-      if (secondResult.candidates && secondResult.candidates[0] && secondResult.candidates[0].content) {
-        const parts = secondResult.candidates[0].content.parts;
-        if (parts && parts.length > 0 && parts[0].text) {
-          return parts[0].text;
+        
+        :root {
+            /* FLUORO PALETTE */
+            --neon-pink: #FF006E;
+            --hot-pink: #FF1B8D;
+            --watermelon: #FF2E63;
+            --acid-green: #CCFF00;
+            --electric-lime: #39FF14;
+            --electric-white: #FFFFFF;
+            --warm-beige: #F5E6D3;
+            --pure-black: #000000;
+            --dark-grey: #1A1A1A;
         }
-      }
-      
-      // Fallback: return the tool result directly
-      Logger.log('No text in second response, returning tool data directly');
-      return toolData;
-    }
-
-    // Return regular text response
-    const textResponse = part.text || "";
-    if (!textResponse || textResponse.trim() === "") {
-      Logger.log("WARNING: No text in part. Part structure: " + JSON.stringify(part));
-      return "I received your message but couldn't formulate a response. Please try again.";
-    }
-    return textResponse;
-    
-  } catch (e) { 
-    Logger.log("Exception: " + e.toString());
-    
-    // Check if it's an overload error and retry
-    const errorStr = e.toString();
-    if ((errorStr.includes("overloaded") || errorStr.includes("503") || errorStr.includes("429")) && retryCount < 3) {
-      Logger.log("API overloaded, retrying... (attempt " + (retryCount + 1) + ")");
-      
-      // Exponential backoff: wait 1s, 2s, 4s
-      Utilities.sleep(Math.pow(2, retryCount) * 1000);
-      
-      return chatWithSommelier(history, retryCount + 1);
-    }
-    
-    return "🚨 Connection error: " + e.toString(); 
-  }
-}
-
-/**
- * Upload image to Google Drive and return public URL
- * @param {string} base64Data - Base64 encoded image
- * @param {string} fileName - Name for the file
- * @returns {object} {fileId, url, error}
- */
-function uploadImageToDrive(base64Data, fileName) {
-  try {
-    // Check if we have data
-    if (!base64Data) {
-      return { error: "No base64 data provided" };
-    }
-    
-    // Decode base64
-    let blob;
-    try {
-      const decoded = Utilities.base64Decode(base64Data);
-      blob = Utilities.newBlob(decoded, 'image/jpeg', fileName);
-    } catch (decodeError) {
-      return { error: "Base64 decode failed: " + decodeError.toString() };
-    }
-    
-    // Get or create Wine Labels folder
-    const folderName = 'Wine Labels - RAVE CAVE';
-    let folder;
-    try {
-      const folders = DriveApp.getFoldersByName(folderName);
-      if (folders.hasNext()) {
-        folder = folders.next();
-      } else {
-        folder = DriveApp.createFolder(folderName);
-      }
-    } catch (folderError) {
-      return { error: "Folder creation failed: " + folderError.toString() };
-    }
-    
-    // Upload file
-    let file;
-    try {
-      file = folder.createFile(blob);
-    } catch (uploadError) {
-      return { error: "File upload failed: " + uploadError.toString() };
-    }
-    
-    const fileId = file.getId();
-    
-    // Make it publicly viewable with multiple methods
-    try {
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      file.setShareableByEditors(false);
-    } catch (shareError) {
-      return { error: "Sharing failed: " + shareError.toString(), fileId: fileId };
-    }
-    
-    // Generate public URL - use thumbnail which works better for images
-    const url = `https://drive.google.com/thumbnail?id=${fileId}&sz=w500`;
-    
-    return { fileId: fileId, url: url };
-  } catch (e) {
-    return { error: "General error: " + e.toString() };
-  }
-}
-
-/**
- * Add new wine to the cellar
- * @param {Object} args - Wine details
- * @returns {string} Confirmation message
- */
-function addWine(args) {
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-    
-    // Get Drive image URL - either from args or from temp storage
-    let imageUrl = '';
-    let driveImageId = args.driveImageId;
-    
-    Logger.log('addWine called with args: ' + JSON.stringify(args));
-    Logger.log('driveImageId from args: ' + driveImageId);
-    
-    if (!driveImageId) {
-      // Check if there's a temp ID from recent image upload
-      driveImageId = PropertiesService.getScriptProperties().getProperty('TEMP_DRIVE_IMAGE_ID');
-      Logger.log('Retrieved TEMP_DRIVE_IMAGE_ID: ' + driveImageId);
-      // Clear it after use
-      PropertiesService.getScriptProperties().deleteProperty('TEMP_DRIVE_IMAGE_ID');
-    }
-    
-    if (driveImageId) {
-      imageUrl = `https://drive.google.com/uc?id=${driveImageId}`;
-      Logger.log('Generated image URL: ' + imageUrl);
-    } else {
-      Logger.log('WARNING: No Drive image ID found!');
-    }
-    
-    // Check if wine already exists (same producer, vintage, wine name OR cépage if no wine name)
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const existingProducer = row[0];
-      const existingWineName = row[1];
-      const existingVintage = row[2];
-      const existingCepage = row[4]; // Cépage column
-      
-      // Match on producer + vintage + (wine name OR cépage)
-      const producerMatch = existingProducer === args.producer;
-      const vintageMatch = existingVintage.toString() === args.vintage.toString();
-      
-      // If both have wine names, match on wine name
-      // If either lacks wine name, match on cépage instead
-      let wineMatch = false;
-      if (args.wineName && existingWineName) {
-        wineMatch = existingWineName === args.wineName;
-      } else {
-        // No wine name - match on cépage
-        wineMatch = existingCepage === args.cepage;
-      }
-      
-      if (producerMatch && vintageMatch && wineMatch) {
-        // Wine exists! Update quantity
-        const currentQty = parseInt(row[9]) || 0;
-        const newQty = currentQty + (parseInt(args.quantity) || 1);
         
-        sheet.getRange(i + 1, 10).setValue(newQty); // Column J (Quantity)
-        
-        Logger.log('Updated existing wine quantity: ' + currentQty + ' -> ' + newQty);
-        
-        return `✅ Updated! You now have **${newQty} bottles** of ${args.vintage} ${args.producer}${args.wineName ? ' "' + args.wineName + '"' : ' ' + args.cepage}.\n\n📅 Drink: ${args.drinkFrom}-${args.drinkUntil}\n🍷 ${args.tastingNotes}`;
-      }
-    }
-    
-    // Wine doesn't exist - add new row
-    const rowData = [
-      args.producer || '',
-      args.wineName || '',
-      args.vintage || '',
-      args.wineType || '',
-      args.cepage || '',
-      args.blendPercent || '100%',
-      args.appellation || '',
-      args.region || '',
-      args.country || '',
-      args.quantity || 1,
-      args.drinkFrom || '',
-      args.drinkUntil || '',
-      args.maturity || '',
-      args.tastingNotes || '',
-      '', // My Rating (blank)
-      '', // Vivino/AI Rating (blank - will add later)
-      '', // Personal Note (blank)
-      '', // Link to wine (blank)
-      imageUrl
-    ];
-    
-    Logger.log('Appending new row with image URL at position 18: ' + imageUrl);
-    sheet.appendRow(rowData);
-    
-    Logger.log('Added wine: ' + args.vintage + ' ' + args.producer + ' ' + (args.wineName || args.cepage));
-    
-    const successMessage = `✅ Added ${args.vintage} ${args.producer}${args.wineName ? ' "' + args.wineName + '"' : ' ' + args.cepage} to your cellar${imageUrl ? ' with label photo' : ''}!\n\n📅 Drink: ${args.drinkFrom}-${args.drinkUntil}\n🍷 ${args.tastingNotes}`;
-    
-    Logger.log('Returning success message: ' + successMessage);
-    return successMessage;
-  } catch (e) {
-    Logger.log('Error in addWine: ' + e.toString());
-    return '❌ Error adding wine: ' + e.toString();
-  }
-}
-
-/**
- * Generate AI Quality Score using Gemini (no web scraping needed)
- * @param {Object} args - Wine details
- * @returns {Object} {score, confidence, drinkWindow, styleTags, reason}
- */
-/**
- * Search the web for wine recommendations and information
- * @param {Object} args - {query: string}
- * @returns {string} Search results summary
- */
-function searchWineRecommendations(args) {
-  try {
-    Logger.log("Wine search query: " + args.query);
-    
-    // Provide curated recommendations based on the query
-    return `Research suggestion for: "${args.query}"
-
-I recommend exploring:
-• Wine-Searcher.com - for pricing and availability
-• Vivino.com - for ratings and community reviews  
-• Decanter.com - for expert reviews and buying guides
-• Local specialist wine retailers in Australia
-
-I can also analyze your current collection to identify specific gaps and make targeted recommendations based on what you already enjoy.`;
-    
-  } catch (e) {
-    Logger.log("Error in searchWineRecommendations: " + e.toString());
-    return "I can provide recommendations based on your collection's gaps.";
-  }
-}
-
-/**
- * Remove one bottle from inventory
- * @param {Object} args - {producer: string, vintage: number}
- * @returns {string} Status message
- */
-function runRemoveWine(args) {
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-    const data = sheet.getDataRange().getValues();
-    
-    Logger.log("Looking for: " + args.producer + " " + args.vintage);
-    
-    // Find the wine (skip header row)
-    for (let i = 1; i < data.length; i++) {
-      const producer = data[i][0].toString().toLowerCase();
-      const vintage = data[i][2].toString();
-      
-      if (producer.includes(args.producer.toLowerCase()) && vintage == args.vintage) {
-        const quantityCol = 9; // Column J (Quantity)
-        let currentQty = parseInt(data[i][quantityCol]) || 1;
-        
-        if (currentQty > 1) {
-          // Decrement quantity
-          sheet.getRange(i + 1, quantityCol + 1).setValue(currentQty - 1);
-          Logger.log("Reduced quantity to " + (currentQty - 1));
-          return `Bottle removed. ${currentQty - 1} remaining.`;
-        } else {
-          // Delete the row (last bottle)
-          sheet.deleteRow(i + 1);
-          Logger.log("Deleted last bottle");
-          return "Last bottle removed from cellar.";
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--warm-beige);
+            overflow-x: hidden;
+            color: var(--pure-black);
         }
-      }
-    }
-    
-    return "Wine not found in cellar: " + args.producer + " " + args.vintage;
-  } catch (e) {
-    Logger.log("Error in runRemoveWine: " + e.toString());
-    return "Error removing wine: " + e.toString();
-  }
-}
-
-/**
- * Get formatted inventory context for AI
- * @returns {string} Formatted inventory list
- */
-function getInventoryContext() {
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-    const rows = sheet.getDataRange().getValues();
-    
-    if (rows.length <= 1) {
-      return "The cellar is currently empty.";
-    }
-    
-    // Format: VINTAGE | PRODUCER | WINE NAME | REGION | QTY: X
-    // This makes each wine clearly distinct
-    const inventory = rows.slice(1) // Skip header
-      .filter(r => r[0] && r[0] !== "") // Filter empty rows
-      .map(r => {
-        const vintage = r[2] || "NV";
-        const producer = r[0] || "Unknown";
-        const wineName = r[1] || "Unknown Wine";
-        const region = r[7] || "Unknown Region";
-        const qty = r[9] || 1;
         
-        // Clear format: Each wine is on its own line with all details
-        return `${vintage} ${producer} "${wineName}" from ${region} | Quantity: ${qty} bottle${qty > 1 ? 's' : ''}`;
-      })
-      .join("\n");
-    
-    return inventory || "The cellar is currently empty.";
-  } catch (e) {
-    Logger.log("Error getting inventory: " + e.toString());
-    return "Error reading cellar inventory.";
-  }
-}
+        .font-display {
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 0.02em;
+        }
+        
+        .font-mono {
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--pure-black);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--acid-green);
+            border: 2px solid var(--pure-black);
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-pink);
+        }
 
-/**
- * Handle POST requests from the web app
- */
-function doPost(e) {
-  try {
-    const request = JSON.parse(e.postData.contents);
+        /* Neon glow effects */
+        .neon-glow-pink {
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.5), 0 0 40px rgba(255, 0, 110, 0.3);
+        }
+        
+        .neon-glow-green {
+            box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), 0 0 40px rgba(204, 255, 0, 0.3);
+        }
+
+        .text-glow-pink {
+            text-shadow: 0 0 10px rgba(255, 0, 110, 0.8), 0 0 20px rgba(255, 0, 110, 0.4);
+        }
+
+        .text-glow-green {
+            text-shadow: 0 0 10px rgba(204, 255, 0, 0.9), 0 0 20px rgba(204, 255, 0, 0.5);
+        }
+
+        /* Angular shapes */
+        .clip-diagonal {
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+        }
+
+        .clip-angled {
+            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
+        }
+
+        @keyframes pulse-neon {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .animate-pulse-neon {
+            animation: pulse-neon 2s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Sticker badge style */
+        .sticker-badge {
+            transform: rotate(-2deg);
+            transition: transform 0.2s ease;
+        }
+
+        .sticker-badge:hover {
+            transform: rotate(2deg) scale(1.05);
+        }
+
+        /* Brutal checkbox */
+        input[type="checkbox"] {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--pure-black);
+            background: var(--electric-white);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: var(--acid-green);
+            border-color: var(--pure-black);
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: -3px;
+            left: 2px;
+            font-size: 14px;
+            font-weight: 900;
+            color: var(--pure-black);
+        }
+
+        /* Angular hover effects */
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card-hover:hover {
+            transform: translateY(-8px) rotate(-2deg);
+        }
+
+        /* CHAT WIDGET STYLES */
+        .chat-widget {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 100;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .chat-bubble {
+            width: 64px;
+            height: 64px;
+            background: var(--neon-pink);
+            border: 4px solid var(--pure-black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.5);
+        }
+
+        .chat-bubble:hover {
+            background: var(--acid-green);
+            transform: rotate(5deg) scale(1.1);
+        }
+
+        .chat-window {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 480px;
+            height: 600px;
+            max-width: calc(100vw - 48px);
+            max-height: calc(100vh - 48px);
+            background: var(--warm-beige);
+            border: 8px solid var(--pure-black);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .chat-header {
+            background: var(--pure-black);
+            color: var(--acid-green);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--neon-pink);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-message {
+            padding: 12px 16px;
+            border: 3px solid var(--pure-black);
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .chat-message.user {
+            background: var(--neon-pink);
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .chat-message.bot {
+            background: var(--acid-green);
+            color: var(--pure-black);
+            align-self: flex-start;
+        }
+
+        .chat-message.loading {
+            background: var(--electric-white);
+            border-style: dashed;
+            font-family: 'IBM Plex Mono', monospace;
+            text-align: center;
+        }
+
+        /* Markdown-style formatting in messages */
+        .chat-message strong,
+        .chat-message b {
+            font-weight: 700;
+            color: inherit;
+        }
+
+        .chat-message em,
+        .chat-message i {
+            font-style: italic;
+        }
+
+        .chat-message h1,
+        .chat-message h2,
+        .chat-message h3,
+        .chat-message h4 {
+            font-family: 'Bebas Neue', sans-serif;
+            margin: 8px 0 4px 0;
+            line-height: 1.2;
+        }
+
+        .chat-message ul,
+        .chat-message ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .chat-message li {
+            margin: 4px 0;
+        }
+
+        .chat-message p {
+            margin: 6px 0;
+        }
+
+        .chat-message hr {
+            border: none;
+            border-top: 2px solid var(--pure-black);
+            margin: 12px 0;
+        }
+
+        .chat-message code {
+            font-family: 'IBM Plex Mono', monospace;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .chat-input-area {
+            padding: 16px;
+            background: var(--pure-black);
+            border-top: 4px solid var(--neon-pink);
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 3px solid var(--acid-green);
+            background: var(--pure-black);
+            color: var(--acid-green);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--neon-pink);
+        }
+
+        .chat-send-btn {
+            padding: 12px 20px;
+            background: var(--acid-green);
+            border: 3px solid var(--pure-black);
+            color: var(--pure-black);
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chat-send-btn:hover {
+            background: var(--neon-pink);
+            color: white;
+        }
+
+        .chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Camera and image preview */
+        .chat-camera-btn {
+            padding: 12px;
+            background: var(--electric-white);
+            border: 3px solid var(--pure-black);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chat-camera-btn:hover {
+            background: var(--acid-green);
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border: 3px solid var(--pure-black);
+            margin: 8px 0;
+        }
+
+        .image-preview-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .remove-image-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--neon-pink);
+            color: white;
+            border: 2px solid var(--pure-black);
+            padding: 4px 8px;
+            cursor: pointer;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 14px;
+        }
+
+        .remove-image-btn:hover {
+            background: var(--pure-black);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    // Handle cell update action
-    if (request.action === 'updateCell') {
-      const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-      const row = request.row;
-      const column = request.column;
-      const value = request.value;
-      
-      // Update the cell (row and column are 1-indexed, but column needs +1 for A1 notation)
-      sheet.getRange(row, column + 1).setValue(value);
-      
-      Logger.log(`Updated cell: Row ${row}, Column ${column}, Value: ${value}`);
-      
-      return ContentService
-        .createTextOutput(JSON.stringify({ success: true }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setHeader('Access-Control-Allow-Origin', '*')
-        .setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        .setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    }
-    
-    // Get history from request
-    let history = request.history || [
-      { 
-        role: "user", 
-        parts: [{ text: request.message || "Hello" }] 
-      }
-    ];
-    
-    // Handle image upload if present
-    let driveImageId = null;
-    if (history.length > 0) {
-      const lastMessage = history[history.length - 1];
-      
-      if (lastMessage.parts) {
-        for (let i = 0; i < lastMessage.parts.length; i++) {
-          const part = lastMessage.parts[i];
-          
-          if (part.inline_data && part.inline_data.data) {
-            Logger.log('Image detected, uploading to Drive...');
-            
-            try {
-              const timestamp = new Date().getTime();
-              const fileName = `wine_label_${timestamp}.jpg`;
-              const uploadResult = uploadImageToDrive(part.inline_data.data, fileName);
-              
-              if (uploadResult && uploadResult.fileId) {
-                driveImageId = uploadResult.fileId;
-                Logger.log('Image uploaded: ' + driveImageId);
-                
-                // Store it globally so AI can use it when calling addWine
-                PropertiesService.getScriptProperties().setProperty('TEMP_DRIVE_IMAGE_ID', driveImageId);
-              } else if (uploadResult && uploadResult.error) {
-                Logger.log('Upload error: ' + uploadResult.error);
-              }
-            } catch (uploadError) {
-              Logger.log('Upload exception: ' + uploadError.toString());
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // Icon Components
+        const WineIcon = ({ className = "w-8 h-8" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M9 2h6v7c0 3.5-2.5 6-6 6s-6-2.5-6-6V2m0 13h12M7 22h10" />
+            </svg>
+        );
+
+        const SearchIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <circle cx="11" cy="11" r="8" />
+                <path strokeLinecap="square" d="M21 21l-4.35-4.35" />
+            </svg>
+        );
+
+        const FilterIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" d="M3 4h18M3 12h12M3 20h6" />
+            </svg>
+        );
+
+        const ChevronIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" d="M19 9l-7 7-7-7" />
+            </svg>
+        );
+
+        const StarIcon = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+        );
+
+        const ClockIcon = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <circle cx="12" cy="12" r="10" />
+                <path strokeLinecap="square" d="M12 6v6l4 2" />
+            </svg>
+        );
+
+        const XIcon = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={4}>
+                <path strokeLinecap="square" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        );
+
+        const ChatIcon = ({ className = "w-8 h-8" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+        );
+
+        const SendIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+        );
+
+        const CameraIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        );
+
+        // Simple markdown-to-HTML converter
+        const parseMarkdown = (text) => {
+          return text
+            // Headers
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // Bold
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            // Lists
+            .replace(/^\* (.+)$/gim, '<li>$1</li>')
+            .replace(/^- (.+)$/gim, '<li>$1</li>')
+            // Wrap consecutive list items in ul
+            .replace(/(<li>.*<\/li>(?:\n|$))+/g, '<ul>$&</ul>')
+            // Horizontal rule
+            .replace(/^---$/gim, '<hr>')
+            // Line breaks
+            .replace(/\n/g, '<br>');
+        };
+
+        const ChatWidget = () => {
+          const [isOpen, setIsOpen] = useState(false);
+          const [messages, setMessages] = useState([
+            {
+              type: 'bot',
+              text: '🍷 Hey! I\'m your personal sommelier. Ask me about wine pairings, tasting notes, your collection, or **take a photo** of a wine label to add it to your cellar!'
             }
+          ]);
+          const [input, setInput] = useState('');
+          const [loading, setLoading] = useState(false);
+          const [geminiHistory, setGeminiHistory] = useState([]); // Track Gemini-format history
+          const [selectedImage, setSelectedImage] = useState(null); // Base64 image
+          const [imagePreview, setImagePreview] = useState(null); // Preview URL
+          const messagesEndRef = React.useRef(null);
+          const fileInputRef = React.useRef(null);
+
+          const scrollToBottom = () => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          };
+
+          React.useEffect(() => {
+            scrollToBottom();
+          }, [messages]);
+
+          const handleImageSelect = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Check file type
+            if (!file.type.startsWith('image/')) {
+              alert('Please select an image file');
+              return;
+            }
+
+            // Create preview URL
+            const previewUrl = URL.createObjectURL(file);
+            setImagePreview(previewUrl);
+
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = reader.result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+              setSelectedImage(base64);
+            };
+            reader.readAsDataURL(file);
+          };
+
+          const removeImage = () => {
+            setSelectedImage(null);
+            setImagePreview(null);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          };
+
+          const sendMessage = async () => {
+            if ((!input.trim() && !selectedImage) || loading) return;
+
+            const userMessage = input.trim() || '📸 [Photo of wine label]';
+            setInput('');
+            
+            // Add user message to UI
+            setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
+            
+            // Build message for Gemini - different structure if image is present
+            let newGeminiHistory;
+            
+            if (selectedImage) {
+              // For messages with images, use inline_data format
+              const messageText = input.trim() || 'I took a photo of a wine label. Can you extract all the details and help me add it to my cellar?';
+              
+              newGeminiHistory = [
+                ...geminiHistory,
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      inline_data: {
+                        mime_type: 'image/jpeg',
+                        data: selectedImage
+                      }
+                    },
+                    {
+                      text: messageText
+                    }
+                  ]
+                }
+              ];
+            } else {
+              // Text-only message
+              newGeminiHistory = [
+                ...geminiHistory,
+                {
+                  role: 'user',
+                  parts: [{ text: input.trim() }]
+                }
+              ];
+            }
+            
+            // Clear image after adding to message
+            removeImage();
+            
+            setLoading(true);
+
+            try {
+              console.log('Sending to Gemini with history:', newGeminiHistory);
+              
+              const response = await fetch(GEMINI_ENDPOINT, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                  'Content-Type': 'text/plain',
+                },
+                body: JSON.stringify({ 
+                  history: newGeminiHistory
+                })
+              });
+
+              console.log('Response status:', response.status);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+
+              const data = await response.json();
+              console.log('Response data:', JSON.stringify(data, null, 2));
+              console.log('Checking keys:', {
+                reply: data.reply,
+                response: data.response,
+                message: data.message,
+                result: data.result
+              });
+              
+              const botReply = data.reply || data.response || data.message || data.result;
+              
+              if (!botReply || botReply.trim() === '') {
+                console.error('No valid reply found in response. Full data:', JSON.stringify(data));
+                setMessages(prev => [...prev, { 
+                  type: 'bot', 
+                  text: '🍷 My apologies, I seem to have momentarily lost my train of thought. Could you rephrase that?' 
+                }]);
+                setLoading(false);
+                return;
+              }
+              
+              console.log('Bot reply:', botReply);
+              
+              // Add bot response to UI
+              setMessages(prev => [...prev, { 
+                type: 'bot', 
+                text: botReply
+              }]);
+              
+              // Add bot response to Gemini history in correct format
+              setGeminiHistory([
+                ...newGeminiHistory,
+                {
+                  role: 'model',
+                  parts: [{ text: botReply }]
+                }
+              ]);
+              
+            } catch (error) {
+              console.error('Chat error details:', error);
+              setMessages(prev => [...prev, { 
+                type: 'bot', 
+                text: `⚠️ Error: ${error.message}` 
+              }]);
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const handleKeyPress = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          };
+
+          if (!isOpen) {
+            return (
+              <div className="chat-widget">
+                <div 
+                  className="chat-bubble"
+                  onClick={() => setIsOpen(true)}
+                >
+                  <ChatIcon style={{color: '#CCFF00'}} />
+                </div>
+              </div>
+            );
           }
-        }
-      }
-    }
-    
-    const aiResponse = chatWithSommelier(history);
-    
-    // Safety check: never return empty response
-    if (!aiResponse || aiResponse.trim() === '') {
-      Logger.log('WARNING: Empty AI response');
-      return ContentService
-        .createTextOutput(JSON.stringify({ 
-          response: "I apologize, I'm having trouble processing that request. Please try again."
-        }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    return ContentService
-      .createTextOutput(JSON.stringify({ response: aiResponse }))
-      .setMimeType(ContentService.MimeType.JSON);
-      
-  } catch (err) {
-    Logger.log('doPost error: ' + err.toString());
-    return ContentService
-      .createTextOutput(JSON.stringify({ 
-        response: "System error. Please try again."
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
 
-/**
- * Handle OPTIONS requests for CORS preflight
- */
-function doOptions(e) {
-  return ContentService
-    .createTextOutput('')
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    .setHeader('Access-Control-Max-Age', '86400');
-}
+          return (
+            <div className="chat-widget">
+              <div className="chat-window">
+                {/* Header */}
+                <div className="chat-header">
+                  <div>
+                    <h3 className="font-display text-2xl tracking-tight">SOMMELIER AI</h3>
+                    <p className="font-mono text-xs" style={{color: '#FF006E'}}>
+                      YOUR WINE GUIDE
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="p-2 hover:bg-[#FF006E] transition-colors"
+                  >
+                    <XIcon style={{color: '#CCFF00'}} className="w-5 h-5" />
+                  </button>
+                </div>
 
-/**
- * Handle GET requests (for testing)
- */
-function doGet(e) {
-  return ContentService
-    .createTextOutput(JSON.stringify({ 
-      status: "Sommelier API is running",
-      version: "5.0"
-    }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+                {/* Messages */}
+                <div className="chat-messages">
+                  {messages.map((msg, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`chat-message ${msg.type}`}
+                      dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }}
+                    />
+                  ))}
+                  {loading && (
+                    <div className="chat-message loading">
+                      THINKING...
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
 
-/**
- * Test function - run this to verify setup
- */
-function testSommelier() {
-  const testHistory = [
-    {
-      role: "user",
-      parts: [{ text: "What wine should I pair with lamb?" }]
-    }
-  ];
-  
-  const response = chatWithSommelier(testHistory);
-  Logger.log("Test response: " + response);
-  return response;
-}
+                {/* Input */}
+                <div className="chat-input-area">
+                  {/* Image preview */}
+                  {imagePreview && (
+                    <div className="w-full mb-2">
+                      <div className="image-preview-container">
+                        <img src={imagePreview} alt="Wine label" className="image-preview" />
+                        <button
+                          onClick={removeImage}
+                          className="remove-image-btn"
+                        >
+                          ✕ REMOVE
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleImageSelect}
+                      style={{ display: 'none' }}
+                    />
+                    
+                    {/* Camera button */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                      className="chat-camera-btn"
+                      title="Take photo of wine label"
+                    >
+                      <CameraIcon style={{color: '#000000'}} />
+                    </button>
+                    
+                    {/* Text input */}
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="ASK ABOUT WINE..."
+                      className="chat-input"
+                      disabled={loading}
+                    />
+                    
+                    {/* Send button */}
+                    <button
+                      onClick={sendMessage}
+                      disabled={loading || (!input.trim() && !selectedImage)}
+                      className="chat-send-btn"
+                    >
+                      SEND
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
 
-/**
- * Test with image - for debugging photo upload issues
- */
-function testWithImage() {
-  // This won't work without actual image data, but will test the flow
-  const testHistory = [
-    {
-      role: "user",
-      parts: [
-        { text: "Test message" }
-      ]
-    }
-  ];
-  
-  const response = chatWithSommelier(testHistory);
-  Logger.log("Test response: " + response);
-  return response;
-}
+        // API Configuration
+        const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxSNo0ib-i8HOSOr4eoCpt2dm0P6hI26VqLddhA4zAiIuYxLjTfrllD4C2CFf8xMKrV/exec';
+        const SHEET_API_URL = GEMINI_ENDPOINT; // Same endpoint, different action
 
-/**
- * Authorization helper - Run this once to grant Drive permissions
- * This triggers the OAuth authorization flow
- */
-function authorizeDrive() {
-  // This simple function call will trigger the authorization prompt
-  const folders = DriveApp.getFolders();
-  return "Drive access authorized! You can now use photo upload.";
-}
+        const RaveCave = () => {
+          const [wines, setWines] = useState([]);
+          const [loading, setLoading] = useState(true);
+          const [error, setError] = useState(null);
+          const [searchTerm, setSearchTerm] = useState('');
+          const [sidebarOpen, setSidebarOpen] = useState(true);
+          const [selectedWine, setSelectedWine] = useState(null);
+          
+          const [filters, setFilters] = useState({
+            vintage: [],
+            wineType: [],
+            cepage: [],
+            appellation: [],
+            region: [],
+            country: [],
+            maturity: [],
+            vivinoRating: false
+          });
+
+          const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTC05_L-VtjWBWlHZWrpc9UKfe7H-vKJPn08dAwqDOaZn7bocarcs3rUtUorGeYQXGNwKwVGPVsMzL4/pub?output=csv';
+          
+          // Try multiple CORS proxies as fallbacks
+          const CORS_PROXIES = [
+            '', // Try direct first (works in some browsers)
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?'
+          ];
+
+          useEffect(() => {
+            fetchWineData();
+          }, []);
+
+          const fetchWineData = async (proxyIndex = 0) => {
+            try {
+              console.log('Fetching wine data...');
+              const proxy = CORS_PROXIES[proxyIndex];
+              const url = proxy ? proxy + encodeURIComponent(CSV_URL) : CSV_URL;
+              
+              const response = await fetch(url);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              const csvText = await response.text();
+              console.log('CSV fetched, parsing...');
+              
+              window.Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                  console.log('Parsed wines:', results.data.length);
+                  if (results.data.length > 0) {
+                    setWines(results.data);
+                    setLoading(false);
+                  } else {
+                    throw new Error('No data in CSV');
+                  }
+                },
+                error: (error) => {
+                  console.error('Parse error:', error);
+                  throw error;
+                }
+              });
+            } catch (error) {
+              console.error('Fetch error:', error);
+              
+              // Try next proxy
+              if (proxyIndex < CORS_PROXIES.length - 1) {
+                console.log(`Trying proxy ${proxyIndex + 1}...`);
+                fetchWineData(proxyIndex + 1);
+              } else {
+                setError('Error loading wine data - please refresh');
+                setLoading(false);
+              }
+            }
+          };
+
+          const getMaturityStatus = (drinkFrom, drinkUntil) => {
+            const currentYear = new Date().getFullYear();
+            const from = parseInt(drinkFrom);
+            const until = parseInt(drinkUntil);
+            
+            if (isNaN(from) || isNaN(until)) return 'Unknown';
+            
+            if (currentYear >= from && currentYear <= until) return 'PEAK';
+            if (currentYear < from) return 'CELLAR';
+            return 'DRINK';
+          };
+
+          const getWineColors = (wineType) => {
+            const type = wineType?.toLowerCase() || '';
+            
+            if (type.includes('red')) {
+              return {
+                bg: 'bg-[#FF006E]',
+                accent: 'bg-[#CCFF00]',
+                text: 'text-white',
+                border: 'border-black',
+                glow: 'neon-glow-pink'
+              };
+            } else if (type.includes('white')) {
+              return {
+                bg: 'bg-[#CCFF00]',
+                accent: 'bg-white',
+                text: 'text-black',
+                border: 'border-black',
+                glow: 'neon-glow-green'
+              };
+            } else if (type.includes('rosé') || type.includes('rose')) {
+              return {
+                bg: 'bg-[#FFE5EC]',
+                accent: 'bg-[#FF2E63]',
+                text: 'text-black',
+                border: 'border-[#FF006E]',
+                glow: 'neon-glow-pink'
+              };
+            }
+            
+            return {
+              bg: 'bg-[#F5E6D3]',
+              accent: 'bg-black',
+              text: 'text-black',
+              border: 'border-black',
+              glow: ''
+            };
+          };
+
+          const filterOptions = useMemo(() => {
+            if (!wines.length) return {};
+            
+            return {
+              vintage: [...new Set(wines.map(w => w.Vintage).filter(Boolean))].sort((a, b) => b - a),
+              wineType: [...new Set(wines.map(w => w['Wine type']).filter(Boolean))].sort(),
+              cepage: [...new Set(wines.map(w => w['Cépage']).filter(Boolean))].sort(),
+              appellation: [...new Set(wines.map(w => w.Appellation).filter(Boolean))].sort(),
+              region: [...new Set(wines.map(w => w.Region).filter(Boolean))].sort(),
+              country: [...new Set(wines.map(w => w.Country).filter(Boolean))].sort()
+            };
+          }, [wines]);
+
+          const filteredWines = useMemo(() => {
+            return wines.filter(wine => {
+              const searchLower = searchTerm.toLowerCase();
+              const matchesSearch = !searchTerm || 
+                wine.Producer?.toLowerCase().includes(searchLower) ||
+                wine['Cépage']?.toLowerCase().includes(searchLower);
+
+              const matchesVintage = !filters.vintage.length || filters.vintage.includes(wine.Vintage);
+              const matchesType = !filters.wineType.length || filters.wineType.includes(wine['Wine type']);
+              const matchesCepage = !filters.cepage.length || filters.cepage.includes(wine['Cépage']);
+              const matchesAppellation = !filters.appellation.length || filters.appellation.includes(wine.Appellation);
+              const matchesRegion = !filters.region.length || filters.region.includes(wine.Region);
+              const matchesCountry = !filters.country.length || filters.country.includes(wine.Country);
+
+              const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
+              const matchesMaturity = !filters.maturity.length || filters.maturity.includes(maturity);
+
+              const vivinoRating = parseFloat(wine['Vivino Rating']);
+              const matchesVivino = !filters.vivinoRating || (vivinoRating >= 4.0);
+
+              return matchesSearch && matchesVintage && matchesType && matchesCepage && 
+                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity && matchesVivino;
+            });
+          }, [wines, searchTerm, filters]);
+
+          const toggleFilter = (category, value) => {
+            setFilters(prev => {
+              const current = prev[category];
+              if (Array.isArray(current)) {
+                return {
+                  ...prev,
+                  [category]: current.includes(value)
+                    ? current.filter(v => v !== value)
+                    : [...current, value]
+                };
+              } else {
+                return { ...prev, [category]: !current };
+              }
+            });
+          };
+
+          const clearAllFilters = () => {
+            setFilters({
+              vintage: [],
+              wineType: [],
+              cepage: [],
+              appellation: [],
+              region: [],
+              country: [],
+              maturity: [],
+              vivinoRating: false
+            });
+            setSearchTerm('');
+          };
+
+          if (loading) {
+            return (
+              <div className="min-h-screen bg-[#F5E6D3] flex items-center justify-center">
+                <div className="text-center space-y-6">
+                  <div className="relative">
+                    <div className="w-24 h-24 mx-auto animate-spin" style={{color: '#FF006E'}}>
+                      <WineIcon className="w-full h-full" />
+                    </div>
+                    <div className="absolute inset-0 neon-glow-pink animate-pulse-neon blur-2xl"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-6xl font-display text-black tracking-tight text-glow-pink" style={{color: '#FF006E'}}>
+                      RAVE CAVE
+                    </h2>
+                    <p className="text-sm font-mono uppercase tracking-widest" style={{color: '#CCFF00'}}>
+                      ⚡ LOADING COLLECTION ⚡
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (error) {
+            return (
+              <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="text-center space-y-4 p-8 border-4 border-[#FF006E] bg-[#F5E6D3]">
+                  <p className="text-4xl font-display" style={{color: '#FF006E'}}>⚠️ {error}</p>
+                  <button 
+                    onClick={fetchWineData}
+                    className="px-8 py-4 bg-[#CCFF00] text-black font-display text-2xl border-4 border-black hover:bg-[#FF006E] hover:text-white transition-all"
+                  >
+                    RETRY
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="min-h-screen bg-[#F5E6D3]">
+              {/* BRUTAL HEADER */}
+              <header className="border-b-8 border-black bg-white sticky top-0 z-40">
+                <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        className="lg:hidden p-3 bg-black hover:bg-[#FF006E] transition-colors"
+                        style={{color: '#CCFF00'}}
+                      >
+                        <FilterIcon />
+                      </button>
+                      <div className="flex items-center gap-3">
+                        <div style={{color: '#FF006E'}}>
+                          <WineIcon className="w-12 h-12" />
+                        </div>
+                        <h1 className="text-5xl sm:text-6xl font-display tracking-tight" style={{color: '#FF006E'}}>
+                          RAVE CAVE
+                        </h1>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 max-w-2xl">
+                      <div className="relative">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{color: '#CCFF00'}}>
+                          <SearchIcon className="w-6 h-6" />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="SEARCH PRODUCER / GRAPE"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-14 pr-4 py-4 bg-black border-4 border-black font-mono text-lg uppercase
+                                   placeholder-[#CCFF00] focus:outline-none focus:border-[#FF006E] transition-all"
+                          style={{color: '#CCFF00'}}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="font-display text-3xl tracking-tight">
+                      <span style={{color: '#FF006E'}}>{filteredWines.length}</span>
+                      <span className="text-black"> BTL</span>
+                    </div>
+                  </div>
+                </div>
+              </header>
+
+              <div className="flex max-w-[2000px] mx-auto">
+                {/* SIDEBAR */}
+                <aside className={`
+                  ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                  fixed lg:sticky top-[100px] left-0 h-[calc(100vh-100px)] w-64 
+                  bg-black border-r-6 border-black overflow-y-auto z-30
+                  transition-transform duration-300 ease-in-out
+                `}>
+                  <div className="p-4 space-y-5">
+                    <div className="flex items-center justify-between pb-3 border-b-3 border-[#CCFF00]">
+                      <h2 className="text-2xl font-display tracking-tight" style={{color: '#CCFF00'}}>
+                        FILTERS
+                      </h2>
+                      <button
+                        onClick={clearAllFilters}
+                        className="text-[10px] font-mono uppercase tracking-wider hover:text-[#FF006E] transition-colors"
+                        style={{color: '#CCFF00'}}
+                      >
+                        CLEAR
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-mono uppercase tracking-widest" style={{color: '#FF006E'}}>
+                        ★ RATING
+                      </h3>
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={filters.vivinoRating}
+                          onChange={() => toggleFilter('vivinoRating')}
+                          style={{width: '18px', height: '18px', border: '2px solid black'}}
+                        />
+                        <span className="font-mono text-xs uppercase group-hover:text-[#CCFF00] transition-colors" style={{color: 'white'}}>
+                          4.0+ VIVINO
+                        </span>
+                      </label>
+                    </div>
+
+                    <BrutalFilterSection
+                      title="MATURITY"
+                      options={['PEAK', 'CELLAR', 'DRINK']}
+                      selected={filters.maturity}
+                      onToggle={(val) => toggleFilter('maturity', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="VINTAGE"
+                      options={filterOptions.vintage || []}
+                      selected={filters.vintage}
+                      onToggle={(val) => toggleFilter('vintage', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="TYPE"
+                      options={filterOptions.wineType || []}
+                      selected={filters.wineType}
+                      onToggle={(val) => toggleFilter('wineType', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="GRAPE"
+                      options={filterOptions.cepage || []}
+                      selected={filters.cepage}
+                      onToggle={(val) => toggleFilter('cepage', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="REGION"
+                      options={filterOptions.region || []}
+                      selected={filters.region}
+                      onToggle={(val) => toggleFilter('region', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="COUNTRY"
+                      options={filterOptions.country || []}
+                      selected={filters.country}
+                      onToggle={(val) => toggleFilter('country', val)}
+                    />
+                  </div>
+                </aside>
+
+                {sidebarOpen && (
+                  <div 
+                    className="lg:hidden fixed inset-0 bg-black/80 z-20 top-[100px]"
+                    onClick={() => setSidebarOpen(false)}
+                  />
+                )}
+
+                {/* MAIN GRID */}
+                <main className="flex-1 p-6 lg:p-12">
+                  {filteredWines.length === 0 ? (
+                    <div className="text-center py-20 border-8 border-black bg-white">
+                      <div className="w-24 h-24 mx-auto mb-6" style={{color: '#FF006E'}}>
+                        <WineIcon className="w-full h-full" />
+                      </div>
+                      <p className="text-3xl font-display mb-4">NO MATCHES</p>
+                      <button
+                        onClick={clearAllFilters}
+                        className="px-8 py-4 bg-[#CCFF00] text-black font-display text-xl border-4 border-black hover:bg-[#FF006E] hover:text-white transition-all"
+                      >
+                        CLEAR FILTERS
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+                      {filteredWines.map((wine, index) => (
+                        <WineCard 
+                          key={index} 
+                          wine={wine}
+                          onClick={() => setSelectedWine(wine)}
+                          getMaturityStatus={getMaturityStatus}
+                          getWineColors={getWineColors}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </main>
+              </div>
+
+              {selectedWine && (
+                <WineModal 
+                  wine={selectedWine} 
+                  wines={wines}
+                  setWines={setWines}
+                  onClose={() => setSelectedWine(null)}
+                  getMaturityStatus={getMaturityStatus}
+                  getWineColors={getWineColors}
+                />
+              )}
+
+              {/* FLOATING SOMMELIER CHAT */}
+              <ChatWidget />
+            </div>
+          );
+        };
+
+        const BrutalFilterSection = ({ title, options, selected, onToggle }) => {
+          const [expanded, setExpanded] = useState(false);
+
+          return (
+            <div className="space-y-2 border-t-3 border-[#FF006E] pt-4">
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center justify-between w-full group"
+              >
+                <h3 className="text-xs font-mono uppercase tracking-widest group-hover:text-[#CCFF00] transition-colors"
+                    style={{color: '#FF006E'}}>
+                  {title}
+                </h3>
+                <ChevronIcon className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} 
+                             style={{color: '#CCFF00'}} />
+              </button>
+              
+              {expanded && (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {options.map(option => (
+                    <label key={option} className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(option)}
+                        onChange={() => onToggle(option)}
+                        style={{width: '18px', height: '18px', border: '2px solid black'}}
+                      />
+                      <span className="font-mono text-xs uppercase group-hover:text-[#CCFF00] transition-colors"
+                            style={{color: 'white'}}>
+                        {option}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const WineCard = ({ wine, onClick, getMaturityStatus, getWineColors }) => {
+          const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
+          const colors = getWineColors(wine['Wine type']);
+          const vivinoRating = parseFloat(wine['Vivino Rating']);
+          const imageUrl = wine['Label image'];
+          const bottleCount = wine['Quantity'] || '1';
+
+          // Icon color based on wine type
+          const getIconColor = () => {
+            const type = wine['Wine type']?.toLowerCase() || '';
+            if (type.includes('white')) return '#CCFF00';
+            if (type.includes('red')) return '#FF2E63';
+            return '#000000';
+          };
+
+          return (
+            <div 
+              onClick={onClick}
+              className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden`}
+            >
+              {/* IMAGE BLOCK - SQUARE CROP */}
+              <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
+                {imageUrl ? (
+                  <img 
+                    src={imageUrl.includes('drive.google.com') 
+                      ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
+                      : imageUrl
+                    } 
+                    alt={wine['Cépage']}
+                    className="w-full h-full object-cover"
+                    style={{clipPath: 'inset(0)'}}
+                    onError={(e) => {
+                      // Only for Drive images: try alternative format
+                      if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
+                        e.target.dataset.fallbackAttempted = 'true';
+                        const fileIdMatch = imageUrl.match(/id=([^&]+)/);
+                        if (fileIdMatch) {
+                          e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-white flex items-center justify-center">
+                    <WineIcon className="w-20 h-20" style={{color: getIconColor()}} />
+                  </div>
+                )}
+                
+                {/* DIAGONAL ACCENT BAR WITH BOTTLE COUNT */}
+                <div className={`absolute top-0 right-0 ${colors.accent} px-6 py-2 clip-diagonal`}
+                     style={{clipPath: 'polygon(20% 0, 100% 0, 100% 100%, 0 100%)'}}>
+                  <span className="font-display text-2xl font-bold text-black">
+                    {bottleCount}
+                  </span>
+                </div>
+              </div>
+
+              {/* INFO BLOCK */}
+              <div className={`${colors.bg} p-6 space-y-3`}>
+                {/* GRAPE - HUGE */}
+                <div className={`font-display text-7xl leading-none ${colors.text} tracking-tighter uppercase`}>
+                  {wine['Cépage'] || wine['Wine type']}
+                </div>
+
+                {/* VINTAGE - SMALLER */}
+                <h3 className={`font-display text-4xl leading-tight ${colors.text} tracking-tight`}>
+                  {wine.Vintage}
+                </h3>
+
+                {/* PRODUCER - LARGER */}
+                <p className={`font-mono text-lg uppercase tracking-wide ${colors.text} opacity-70`}>
+                  {wine.Producer}
+                </p>
+
+                {/* STICKER BADGES */}
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {vivinoRating && !isNaN(vivinoRating) && (
+                    <div className="sticker-badge inline-flex items-center gap-1 px-3 py-1.5 bg-black border-2 border-black">
+                      <StarIcon style={{color: '#CCFF00'}} />
+                      <span className="font-mono text-xs font-bold" style={{color: '#CCFF00'}}>
+                        {vivinoRating.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className={`sticker-badge inline-flex items-center gap-1 px-3 py-1.5 border-2 border-black`}
+                       style={{backgroundColor: maturity === 'PEAK' ? '#CCFF00' : maturity === 'CELLAR' ? '#00D9FF' : '#FF006E'}}>
+                    <ClockIcon className="text-black" />
+                    <span className="font-mono text-xs font-bold text-black">
+                      {maturity}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const WineModal = ({ wine, wines, setWines, onClose, getMaturityStatus, getWineColors }) => {
+          const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
+          const colors = getWineColors(wine['Wine type']);
+          const vivinoRating = parseFloat(wine['Vivino Rating']);
+          const imageUrl = wine['Label image'];
+
+          // Track which field is being edited
+          const [editingField, setEditingField] = React.useState(null);
+          const [editValue, setEditValue] = React.useState('');
+          const [updating, setUpdating] = React.useState(false);
+
+          const allFields = Object.entries(wine).filter(([key, value]) => 
+            key !== 'Label image'
+          );
+
+          const handleFieldClick = (key, value) => {
+            setEditingField(key);
+            setEditValue(value || '');
+          };
+
+          const handleUpdate = async (key) => {
+            setUpdating(true);
+            try {
+              // Find the row number (wine index + 2 because of header row and 0-indexing)
+              const wineIndex = wines.findIndex(w => 
+                w.Producer === wine.Producer && 
+                w.Vintage === wine.Vintage && 
+                w['Wine name'] === wine['Wine name']
+              );
+              
+              if (wineIndex === -1) {
+                alert('Wine not found in data');
+                return;
+              }
+
+              const rowNumber = wineIndex + 2; // +2 for header and 0-indexing
+              
+              // Find column index
+              const columnMap = {
+                'Producer': 0, 'Wine name': 1, 'Vintage': 2, 'Wine type': 3,
+                'Cépage': 4, 'Blend %': 5, 'Appellation': 6, 'Region': 7,
+                'Country': 8, 'Quantity': 9, 'Drink From': 10, 'Drink Until': 11,
+                'Maturity': 12, 'Tasting Notes': 13, 'My Rating': 14,
+                'Vivino Rating': 15, 'Personal Note': 16, 'Link to wine': 17,
+                'Label image': 18
+              };
+              
+              const columnIndex = columnMap[key];
+              
+              // Update via Apps Script
+              const response = await fetch(SHEET_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'updateCell',
+                  row: rowNumber,
+                  column: columnIndex,
+                  value: editValue
+                })
+              });
+
+              console.log('Update response status:', response.status);
+              const result = await response.json();
+              console.log('Update result:', result);
+
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Update failed');
+              }
+
+              // Update local data
+              wine[key] = editValue;
+              
+              // Update the wines array
+              const updatedWines = wines.map(w => {
+                if (w.Producer === wine.Producer && 
+                    w.Vintage === wine.Vintage && 
+                    w['Wine name'] === wine['Wine name']) {
+                  return {...w, [key]: editValue};
+                }
+                return w;
+              });
+              setWines(updatedWines);
+              setEditingField(null);
+              
+            } catch (error) {
+              console.error('Update error:', error);
+              alert('Failed to update: ' + error.message);
+            } finally {
+              setUpdating(false);
+            }
+          };
+
+          const handleKeyPress = (e, key) => {
+            if (e.key === 'Enter') {
+              handleUpdate(key);
+            }
+          };
+
+          return (
+            <div 
+              className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={onClose}
+            >
+              <div 
+                className={`${colors.bg} border-8 ${colors.border} max-w-6xl w-full max-h-[95vh] overflow-y-auto`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* HEADER WITH MASSIVE IMAGE */}
+                <div className="relative">
+                  {imageUrl ? (
+                    <div className="relative h-96 overflow-hidden bg-black">
+                      <img 
+                        src={imageUrl.includes('drive.google.com') 
+                          ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
+                          : imageUrl
+                        } 
+                        alt={wine['Wine name']}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
+                            e.target.dataset.fallbackAttempted = 'true';
+                            const fileIdMatch = imageUrl.match(/id=([^&]+)/);
+                            if (fileIdMatch) {
+                              e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className={`h-64 ${colors.accent} flex items-center justify-center`}>
+                      <WineIcon className="w-32 h-32 text-black" />
+                    </div>
+                  )}
+                  
+                  {/* CLOSE BUTTON */}
+                  <button
+                    onClick={onClose}
+                    className="absolute top-6 right-6 p-3 bg-black hover:bg-[#FF006E] border-4 border-[#CCFF00] transition-colors"
+                    style={{color: '#CCFF00'}}
+                  >
+                    <XIcon />
+                  </button>
+
+                  {/* DIAGONAL ACCENT */}
+                  <div className={`absolute bottom-0 left-0 right-0 ${colors.accent} p-8 clip-diagonal`}
+                       style={{clipPath: 'polygon(0 30%, 100% 0, 100% 100%, 0 100%)'}}>
+                    <div className="pt-8">
+                      <p className="font-mono text-sm uppercase tracking-widest text-black mb-2">
+                        {wine.Producer}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CONTENT */}
+                <div className="p-8 lg:p-12 space-y-8">
+                  {/* MASSIVE TYPOGRAPHY */}
+                  <div className="space-y-4">
+                    <h2 className={`font-display text-6xl lg:text-8xl leading-none ${colors.text} uppercase tracking-tighter`}>
+                      {wine['Wine name']}
+                    </h2>
+                    <p className={`font-display text-9xl leading-none tracking-tighter`}
+                       style={{color: colors.bg === 'bg-white' ? '#FF006E' : '#CCFF00'}}>
+                      {wine.Vintage}
+                    </p>
+                  </div>
+
+                  {/* STICKER BADGES - LARGER */}
+                  <div className="flex flex-wrap gap-4">
+                    {vivinoRating && !isNaN(vivinoRating) && (
+                      <div className="sticker-badge inline-flex items-center gap-2 px-5 py-3 bg-black border-4 border-black">
+                        <StarIcon className="w-6 h-6" style={{color: '#CCFF00'}} />
+                        <span className="font-display text-2xl" style={{color: '#CCFF00'}}>
+                          {vivinoRating.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className="sticker-badge inline-flex items-center gap-2 px-5 py-3 border-4 border-black"
+                         style={{backgroundColor: maturity === 'PEAK' ? '#CCFF00' : maturity === 'CELLAR' ? '#00D9FF' : '#FF006E'}}>
+                      <ClockIcon className="w-6 h-6 text-black" />
+                      <span className="font-display text-2xl text-black">
+                        {maturity}
+                      </span>
+                    </div>
+
+                    {wine['Wine type'] && (
+                      <div className="inline-flex items-center px-5 py-3 bg-white border-4 border-black">
+                        <span className="font-mono text-sm uppercase font-bold text-black">
+                          {wine['Wine type']}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* EDITABLE DATA BLOCKS */}
+                  <div className="grid md:grid-cols-2 gap-6 pt-8 border-t-8 border-black">
+                    {allFields.map(([key, value]) => (
+                      <div key={key} className="space-y-2 p-4 border-4 border-black bg-white">
+                        <dt className="font-mono text-xs uppercase tracking-widest font-bold"
+                            style={{color: '#FF006E'}}>
+                          {key}
+                        </dt>
+                        <dd className="font-mono text-base text-black">
+                          {editingField === key ? (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyPress={(e) => handleKeyPress(e, key)}
+                                onFocus={(e) => e.target.select()}
+                                className="flex-1 px-2 py-1 border-2 border-black font-mono"
+                                autoFocus
+                                disabled={updating}
+                              />
+                              <button
+                                onClick={() => handleUpdate(key)}
+                                disabled={updating}
+                                className="px-4 py-1 bg-[#CCFF00] border-2 border-black font-mono text-sm uppercase font-bold hover:bg-[#FF006E] hover:text-white transition-colors disabled:opacity-50"
+                              >
+                                {updating ? '...' : 'Update'}
+                              </button>
+                            </div>
+                          ) : (
+                            <span 
+                              onClick={() => handleFieldClick(key, value)}
+                              className="cursor-pointer hover:bg-yellow-100 block p-1 -m-1"
+                            >
+                              {value || '(empty)'}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<RaveCave />);
+    </script>
+</body>
+</html>
