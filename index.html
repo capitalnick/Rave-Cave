@@ -604,7 +604,7 @@
               }
 
               const data = await response.json();
-              console.log('Response data:', data);
+              console.log('Response data:', JSON.stringify(data, null, 2));
               console.log('Checking keys:', {
                 reply: data.reply,
                 response: data.response,
@@ -615,7 +615,7 @@
               const botReply = data.reply || data.response || data.message || data.result;
               
               if (!botReply || botReply.trim() === '') {
-                console.error('No valid reply found in response:', data);
+                console.error('No valid reply found in response. Full data:', JSON.stringify(data));
                 setMessages(prev => [...prev, { 
                   type: 'bot', 
                   text: '🍷 My apologies, I seem to have momentarily lost my train of thought. Could you rephrase that?' 
