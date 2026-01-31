@@ -438,6 +438,12 @@
             </svg>
         );
 
+        const AlertIcon = ({ className = "w-4 h-4" }) => (
+            <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L1 21h22L12 2zm0 3.5L19.5 19h-15L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z" />
+            </svg>
+        );
+
         const ChatIcon = ({ className = "w-8 h-8" }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                 <path strokeLinecap="square" strokeLinejoin="miter" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -1238,6 +1244,16 @@
           const imageUrl = wine['Label image'];
           const bottleCount = wine['Quantity'] || '1';
 
+          // Strip emoji from maturity label
+          const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
+
+          // Get icon component based on maturity
+          const getMaturityIcon = () => {
+            if (maturity === '🍷 Drink Now') return <WineIcon className="w-4 h-4 text-black" />;
+            if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-4 h-4 text-black" />;
+            return <ClockIcon className="w-4 h-4 text-black" />; // Hold
+          };
+
           // Icon color based on wine type
           const getIconColor = () => {
             const type = wine['Wine type']?.toLowerCase() || '';
@@ -1249,7 +1265,7 @@
           return (
             <div 
               onClick={onClick}
-              className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden`}
+              className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden flex flex-col`}
             >
               {/* IMAGE BLOCK - SQUARE CROP */}
               <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
@@ -1288,8 +1304,8 @@
                 </div>
               </div>
 
-              {/* INFO BLOCK */}
-              <div className={`${colors.bg} p-6 space-y-3`}>
+              {/* INFO BLOCK - flex-grow fills remaining height */}
+              <div className={`${colors.bg} p-6 space-y-3 flex-grow`}>
                 {/* GRAPE - HUGE */}
                 <div className={`font-display text-7xl leading-none ${colors.text} tracking-tighter uppercase`}>
                   {wine['Cépage'] || wine['Wine type']}
@@ -1307,7 +1323,7 @@
 
                 {/* STICKER BADGES */}
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {vivinoRating && !isNaN(vivinoRating) && (
+                  {vivinoRating && !isNaN(vivinoRating) && vivinoRating > 0 && (
                     <div className="sticker-badge inline-flex items-center gap-1 px-3 py-1.5 bg-black border-2 border-black">
                       <StarIcon style={{color: '#CCFF00'}} />
                       <span className="font-mono text-xs font-bold" style={{color: '#CCFF00'}}>
@@ -1318,9 +1334,9 @@
                   
                   <div className={`sticker-badge inline-flex items-center gap-1 px-3 py-1.5 border-2 border-black`}
                        style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : '#FF006E'}}>
-                    <ClockIcon className="text-black" />
+                    {getMaturityIcon()}
                     <span className="font-mono text-xs font-bold text-black">
-                      {maturity}
+                      {maturityLabel}
                     </span>
                   </div>
                 </div>
