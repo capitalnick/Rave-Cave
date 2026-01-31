@@ -1255,15 +1255,21 @@
               <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
                 {imageUrl ? (
                   <img 
-                    src={imageUrl.replace('/uc?id=', '/thumbnail?id=').replace(/$/g, '&sz=w500')} 
+                    src={imageUrl.includes('drive.google.com') 
+                      ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
+                      : imageUrl
+                    } 
                     alt={wine['Cépage']}
                     className="w-full h-full object-cover"
                     style={{clipPath: 'inset(0)'}}
-                    crossOrigin="anonymous"
                     onError={(e) => {
-                      // Fallback: try direct Drive link if thumbnail fails
-                      if (!e.target.src.includes('/file/d/')) {
-                        e.target.src = imageUrl.replace('/uc?id=', '/file/d/').replace(/$/g, '/preview');
+                      // Only for Drive images: try alternative format
+                      if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
+                        e.target.dataset.fallbackAttempted = 'true';
+                        const fileIdMatch = imageUrl.match(/id=([^&]+)/);
+                        if (fileIdMatch) {
+                          e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                        }
                       }
                     }}
                   />
