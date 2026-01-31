@@ -911,7 +911,17 @@
             return {
               vintage: [...new Set(wines.map(w => w.Vintage).filter(Boolean))].sort((a, b) => b - a),
               wineType: [...new Set(wines.map(w => w['Wine type']).filter(Boolean))].sort(),
-              cepage: [...new Set(wines.map(w => w['Cépage']).filter(Boolean))].sort(),
+              // Split cépage by common separators (/, &, and, +, comma) to get individual grapes
+              cepage: [...new Set(
+                wines
+                  .map(w => w['Cépage'])
+                  .filter(Boolean)
+                  .flatMap(c => 
+                    c.split(/[\/&+,]|(?:\s+and\s+)/i)  // Split by /, &, +, comma, or " and "
+                     .map(grape => grape.trim())        // Trim whitespace
+                     .filter(grape => grape.length > 0) // Remove empty strings
+                  )
+              )].sort(),
               appellation: [...new Set(wines.map(w => w.Appellation).filter(Boolean))].sort(),
               region: [...new Set(wines.map(w => w.Region).filter(Boolean))].sort(),
               country: [...new Set(wines.map(w => w.Country).filter(Boolean))].sort()
@@ -927,7 +937,17 @@
 
               const matchesVintage = !filters.vintage.length || filters.vintage.includes(wine.Vintage);
               const matchesType = !filters.wineType.length || filters.wineType.includes(wine['Wine type']);
-              const matchesCepage = !filters.cepage.length || filters.cepage.includes(wine['Cépage']);
+              
+              // Check if any selected grape appears in this wine's cépage
+              const matchesCepage = !filters.cepage.length || 
+                filters.cepage.some(selectedGrape => {
+                  const wineGrapes = wine['Cépage']
+                    ?.split(/[\/&+,]|(?:\s+and\s+)/i)
+                    .map(g => g.trim())
+                    .filter(g => g.length > 0) || [];
+                  return wineGrapes.includes(selectedGrape);
+                });
+              
               const matchesAppellation = !filters.appellation.length || filters.appellation.includes(wine.Appellation);
               const matchesRegion = !filters.region.length || filters.region.includes(wine.Region);
               const matchesCountry = !filters.country.length || filters.country.includes(wine.Country);
