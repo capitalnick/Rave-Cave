@@ -335,6 +335,48 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+
+        /* Camera and image preview */
+        .chat-camera-btn {
+            padding: 12px;
+            background: var(--electric-white);
+            border: 3px solid var(--pure-black);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chat-camera-btn:hover {
+            background: var(--acid-green);
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border: 3px solid var(--pure-black);
+            margin: 8px 0;
+        }
+
+        .image-preview-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .remove-image-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--neon-pink);
+            color: white;
+            border: 2px solid var(--pure-black);
+            padding: 4px 8px;
+            cursor: pointer;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 14px;
+        }
+
+        .remove-image-btn:hover {
+            background: var(--pure-black);
+        }
     </style>
 </head>
 <body>
@@ -405,6 +447,13 @@
             </svg>
         );
 
+        const CameraIcon = ({ className = "w-5 h-5" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="square" strokeLinejoin="miter" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        );
+
         // Simple markdown-to-HTML converter
         const parseMarkdown = (text) => {
           return text
@@ -433,13 +482,16 @@
           const [messages, setMessages] = useState([
             {
               type: 'bot',
-              text: '🍷 Hey! I\'m your personal sommelier. Ask me about wine pairings, tasting notes, or your collection!'
+              text: '🍷 Hey! I\'m your personal sommelier. Ask me about wine pairings, tasting notes, your collection, or **take a photo** of a wine label to add it to your cellar!'
             }
           ]);
           const [input, setInput] = useState('');
           const [loading, setLoading] = useState(false);
           const [geminiHistory, setGeminiHistory] = useState([]); // Track Gemini-format history
+          const [selectedImage, setSelectedImage] = useState(null); // Base64 image
+          const [imagePreview, setImagePreview] = useState(null); // Preview URL
           const messagesEndRef = React.useRef(null);
+          const fileInputRef = React.useRef(null);
 
           const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxHdT1uvpWhl9jiPP54jyzXddJTVoNnxjYPPyYpjC7agDCVSzcyLx89Wjt1NHqHKI4I/exec';
 
@@ -451,23 +503,78 @@
             scrollToBottom();
           }, [messages]);
 
-          const sendMessage = async () => {
-            if (!input.trim() || loading) return;
+          const handleImageSelect = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-            const userMessage = input.trim();
+            // Check file type
+            if (!file.type.startsWith('image/')) {
+              alert('Please select an image file');
+              return;
+            }
+
+            // Create preview URL
+            const previewUrl = URL.createObjectURL(file);
+            setImagePreview(previewUrl);
+
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = reader.result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+              setSelectedImage(base64);
+            };
+            reader.readAsDataURL(file);
+          };
+
+          const removeImage = () => {
+            setSelectedImage(null);
+            setImagePreview(null);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          };
+
+          const sendMessage = async () => {
+            if ((!input.trim() && !selectedImage) || loading) return;
+
+            const userMessage = input.trim() || '📸 [Photo of wine label]';
             setInput('');
             
             // Add user message to UI
             setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
             
-            // Add user message to Gemini history in correct format
+            // Build message parts for Gemini
+            const messageParts = [];
+            
+            // Add image if present
+            if (selectedImage) {
+              messageParts.push({
+                inline_data: {
+                  mime_type: 'image/jpeg',
+                  data: selectedImage
+                }
+              });
+            }
+            
+            // Add text
+            if (input.trim()) {
+              messageParts.push({ text: input.trim() });
+            } else if (selectedImage) {
+              messageParts.push({ text: 'I took a photo of a wine label. Can you extract all the details and help me add it to my cellar?' });
+            }
+            
+            // Add to Gemini history
             const newGeminiHistory = [
               ...geminiHistory,
               {
                 role: 'user',
-                parts: [{ text: userMessage }]
+                parts: messageParts
               }
             ];
+            
+            // Clear image after adding to message
+            const imageData = selectedImage;
+            removeImage();
             
             setLoading(true);
 
@@ -481,7 +588,8 @@
                   'Content-Type': 'text/plain',
                 },
                 body: JSON.stringify({ 
-                  history: newGeminiHistory // Send Gemini-formatted history
+                  history: newGeminiHistory,
+                  hasImage: !!imageData // Flag to help backend know image is present
                 })
               });
 
@@ -598,22 +706,62 @@
 
                 {/* Input */}
                 <div className="chat-input-area">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="ASK ABOUT WINE..."
-                    className="chat-input"
-                    disabled={loading}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={loading || !input.trim()}
-                    className="chat-send-btn"
-                  >
-                    SEND
-                  </button>
+                  {/* Image preview */}
+                  {imagePreview && (
+                    <div className="w-full mb-2">
+                      <div className="image-preview-container">
+                        <img src={imagePreview} alt="Wine label" className="image-preview" />
+                        <button
+                          onClick={removeImage}
+                          className="remove-image-btn"
+                        >
+                          ✕ REMOVE
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleImageSelect}
+                      style={{ display: 'none' }}
+                    />
+                    
+                    {/* Camera button */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                      className="chat-camera-btn"
+                      title="Take photo of wine label"
+                    >
+                      <CameraIcon style={{color: '#000000'}} />
+                    </button>
+                    
+                    {/* Text input */}
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="ASK ABOUT WINE..."
+                      className="chat-input"
+                      disabled={loading}
+                    />
+                    
+                    {/* Send button */}
+                    <button
+                      onClick={sendMessage}
+                      disabled={loading || (!input.trim() && !selectedImage)}
+                      className="chat-send-btn"
+                    >
+                      SEND
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
