@@ -1889,14 +1889,34 @@
           // Get format label for special sizes
           const getFormatLabel = (format) => {
             if (!format || format === '') return null;
-            const f = format.toLowerCase();
-            if (f === '1.5l' || f === '1500ml') return 'MAGNUM';
-            if (f === '375ml' || f === '0.375l') return 'HALF BOTTLE';
-            if (f === '187ml') return 'SPLIT';
-            if (f === '3l' || f === '3000ml') return 'DOUBLE MAGNUM';
-            if (f === '6l' || f === '6000ml') return 'IMPERIAL';
-            if (parseFloat(f) >= 3) return 'LARGE FORMAT';
-            return null; // Standard size, no badge
+            
+            const f = format.toLowerCase().trim();
+            
+            // Convert to milliliters for consistent comparison
+            let ml = 0;
+            
+            if (f.includes('ml')) {
+              ml = parseFloat(f);
+            } else if (f.includes('l')) {
+              ml = parseFloat(f) * 1000;
+            } else {
+              return null; // Unknown format
+            }
+            
+            // Return badge based on size (detailed names)
+            if (ml < 250) return 'SPLIT';              // 187ml, 200ml
+            if (ml < 500) return 'HALF BOTTLE';        // 375ml
+            if (ml < 650) return 'HALF LITER';         // 500ml
+            if (ml < 900) return null;                 // 750ml - STANDARD, no badge
+            if (ml < 1200) return 'LITER';             // 1L
+            if (ml < 2000) return 'MAGNUM';            // 1.5L
+            if (ml < 3500) return 'JEROBOAM';          // 3L (Double Magnum)
+            if (ml < 5000) return 'REHOBOAM';          // 4.5L
+            if (ml < 7500) return 'IMPERIAL';          // 6L (Methuselah)
+            if (ml < 10000) return 'SALMANAZAR';       // 9L
+            if (ml < 13000) return 'BALTHAZAR';        // 12L
+            if (ml < 16000) return 'NEBUCHADNEZZAR';   // 15L
+            return 'LARGE FORMAT';                     // 18L+
           };
 
           // Track which field is being edited
