@@ -966,6 +966,14 @@
             });
           }, [wines, searchTerm, filters]);
 
+          // Calculate total bottles (sum of all quantities)
+          const totalBottles = useMemo(() => {
+            return filteredWines.reduce((sum, wine) => {
+              const qty = parseInt(wine['Quantity']) || 1;
+              return sum + qty;
+            }, 0);
+          }, [filteredWines]);
+
           const toggleFilter = (category, value) => {
             setFilters(prev => {
               const current = prev[category];
@@ -1076,9 +1084,15 @@
                       </div>
                     </div>
 
-                    <div className="font-display text-3xl tracking-tight">
-                      <span style={{color: '#FF006E'}}>{filteredWines.length}</span>
-                      <span className="text-black"> BTL</span>
+                    <div className="font-display text-3xl tracking-tight flex flex-col items-end gap-1">
+                      <div>
+                        <span style={{color: '#CCFF00'}}>{totalBottles}</span>
+                        <span className="text-black"> BTL</span>
+                      </div>
+                      <div className="text-xl">
+                        <span style={{color: '#FF006E'}}>{filteredWines.length}</span>
+                        <span className="text-black"> WINES</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1247,11 +1261,24 @@
           // Strip emoji from maturity label
           const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
 
+          // Get display label for grape - show BLEND if 3+ varieties
+          const getGrapeDisplay = () => {
+            const cepage = wine['Cépage'] || wine['Wine type'];
+            if (!cepage) return wine['Wine type'];
+            
+            // Count grape varieties (split by common separators)
+            const grapes = cepage.split(/[\/&+,]|(?:\s+and\s+)/i)
+              .map(g => g.trim())
+              .filter(g => g.length > 0);
+            
+            return grapes.length > 2 ? 'BLEND' : cepage;
+          };
+
           // Get icon component based on maturity
           const getMaturityIcon = () => {
-            if (maturity === '🍷 Drink Now') return <WineIcon className="w-4 h-4 text-black" />;
-            if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-4 h-4 text-black" />;
-            return <ClockIcon className="w-4 h-4 text-black" />; // Hold
+            if (maturity === '🍷 Drink Now') return <WineIcon className="w-4 h-4" />;
+            if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-4 h-4" />;
+            return <ClockIcon className="w-4 h-4" />; // Hold
           };
 
           // Icon color based on wine type
@@ -1308,7 +1335,7 @@
               <div className={`${colors.bg} p-6 space-y-3 flex-grow`}>
                 {/* GRAPE - HUGE */}
                 <div className={`font-display text-7xl leading-none ${colors.text} tracking-tighter uppercase`}>
-                  {wine['Cépage'] || wine['Wine type']}
+                  {getGrapeDisplay()}
                 </div>
 
                 {/* VINTAGE - SMALLER */}
@@ -1332,10 +1359,16 @@
                     </div>
                   )}
                   
-                  <div className={`sticker-badge inline-flex items-center gap-1 px-3 py-1.5 border-2 border-black`}
-                       style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : '#FF006E'}}>
-                    {getMaturityIcon()}
-                    <span className="font-mono text-xs font-bold text-black">
+                  <div className={`sticker-badge inline-flex items-center gap-1 px-3 py-1.5 border-2 ${
+                    maturity === '⚠️ Past Peak' ? 'border-[#FF006E] bg-black' : 'border-black'
+                  }`}
+                       style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : undefined}}>
+                    <span className={maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'}>
+                      {getMaturityIcon()}
+                    </span>
+                    <span className={`font-mono text-xs font-bold ${
+                      maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'
+                    }`}>
                       {maturityLabel}
                     </span>
                   </div>
