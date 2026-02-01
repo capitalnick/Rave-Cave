@@ -710,7 +710,7 @@
             {
               id: 'msg-0',
               type: 'bot',
-              text: '🍷 Hey! I\'m your personal sommelier. Ask me about wine pairings, tasting notes, your collection, or **take a photo** of a wine label to add it to your cellar!'
+              text: '🍷 Bonjour! I\'m Rémy, your personal sommelier. Ask me about wine pairings, tasting notes, your collection, or **take a photo** of a wine label to add it to your cellar!'
             }
           ]);
           const [input, setInput] = useState('');
@@ -912,9 +912,9 @@
                 {/* Header */}
                 <div className="chat-header">
                   <div>
-                    <h3 className="font-grotesk font-bold text-xl tracking-tight">Sommelier AI</h3>
+                    <h3 className="font-grotesk font-bold text-xl tracking-tight">Sommelier Rémy</h3>
                     <p className="font-mono text-xs" style={{color: 'var(--gray-medium)'}}>
-                      Your Wine Guide
+                      Your AI Wine Guide
                     </p>
                   </div>
                   <button
@@ -1393,13 +1393,13 @@
               <header className="border-b-8 border-black bg-white sticky top-0 z-40 relative">
                 {/* EXHIBITION PLACARD - Hidden on mobile */}
                 <div className="hidden sm:block 
-                                absolute top-4 left-1/2 -translate-x-1/2
+                                absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2
                                 bg-[#F5F0E8] border-2 border-[#0A0A0A]
                                 px-4 py-2 rotate-[-1deg]
                                 shadow-[3px_3px_0_rgba(0,0,0,0.1)]
                                 z-10">
                   <p className="font-mono text-[10px] uppercase tracking-[0.035em]">
-                    Est. 2024 · Underground Cellar
+                    Est. 2026 · Underground Cellar
                   </p>
                 </div>
                 
@@ -1442,7 +1442,7 @@
                 {/* SIDEBAR - Gallery Curatorial Style */}
                 <aside className={`
                   ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                  fixed top-0 lg:top-[90px] left-0 h-screen lg:h-[calc(100vh-90px)] w-full lg:w-64 
+                  fixed top-0 lg:top-[110px] left-0 h-screen lg:h-[calc(100vh-110px)] w-full lg:w-64 
                   bg-[#FAFAF8] border-r-2 border-[#EBEBDF] z-[100] lg:z-30
                   transition-transform duration-300 ease-in-out
                   flex flex-col
@@ -1682,7 +1682,7 @@
                 style={{backgroundColor: colors.stripColor}}
               />
               
-              {/* CURATOR'S PICK LABEL - Only distinction for hero */}
+              {/* SOMMELIER'S FAVE LABEL - Only distinction for hero */}
               {isHero && (
                 <div 
                   className="absolute top-3 right-3 z-10
@@ -1694,7 +1694,7 @@
                     boxShadow: '2px 2px 0 rgba(0,0,0,0.3)'
                   }}
                 >
-                  CURATOR'S PICK
+                  SOMMELIER'S FAVE
                 </div>
               )}
               
