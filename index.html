@@ -152,11 +152,21 @@
 
         /* Angular hover effects */
         .card-hover {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                        box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .card-hover:hover {
             transform: translateY(-8px) rotate(-2deg);
+        }
+
+        /* Glow on hover - applied per wine type */
+        .card-hover.glow-pink:hover {
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.5), 0 0 40px rgba(255, 0, 110, 0.3);
+        }
+
+        .card-hover.glow-green:hover {
+            box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), 0 0 40px rgba(204, 255, 0, 0.3);
         }
 
         /* CHAT WIDGET STYLES */
@@ -882,7 +892,7 @@
                 accent: 'bg-[#CCFF00]',
                 text: 'text-white',
                 border: 'border-black',
-                glow: 'neon-glow-pink'
+                glow: 'glow-pink'
               };
             } else if (type.includes('white')) {
               return {
@@ -890,7 +900,7 @@
                 accent: 'bg-white',
                 text: 'text-black',
                 border: 'border-black',
-                glow: 'neon-glow-green'
+                glow: 'glow-green'
               };
             } else if (type.includes('rosé') || type.includes('rose')) {
               return {
@@ -898,7 +908,7 @@
                 accent: 'bg-[#FF2E63]',
                 text: 'text-black',
                 border: 'border-[#FF006E]',
-                glow: 'neon-glow-pink'
+                glow: 'glow-pink'
               };
             }
             
@@ -1291,7 +1301,7 @@
           return (
             <div 
               onClick={onClick}
-              className={`cursor-pointer card-hover border-8 ${colors.border} overflow-hidden flex flex-col hover:${colors.glow} transition-shadow`}
+              className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden flex flex-col`}
             >
               {/* IMAGE BLOCK - SQUARE CROP */}
               <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
