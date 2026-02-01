@@ -1056,53 +1056,59 @@
             <div className="min-h-screen bg-[#F5E6D3]">
               {/* BRUTAL HEADER */}
               <header className="border-b-8 border-black bg-white sticky top-0 z-40">
-                <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-4">
+                <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
+                  {/* Top row: Logo + Counters */}
+                  <div className="flex items-center justify-between gap-4 mb-4 lg:mb-0">
+                    <div className="flex items-center gap-3 lg:gap-4">
                       <button
                         onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="lg:hidden p-3 bg-black hover:bg-[#FF006E] transition-colors"
+                        className="lg:hidden p-2 bg-black hover:bg-[#FF006E] transition-colors"
                         style={{color: '#CCFF00'}}
                       >
-                        <FilterIcon />
+                        <FilterIcon className="w-5 h-5" />
                       </button>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 lg:gap-3">
                         <div style={{color: '#FF006E'}}>
-                          <WineIcon className="w-12 h-12" />
+                          <WineIcon className="w-8 h-8 lg:w-12 lg:h-12" />
                         </div>
-                        <h1 className="text-5xl sm:text-6xl font-display tracking-tight" style={{color: '#FF006E'}}>
+                        <h1 className="text-3xl sm:text-4xl lg:text-6xl font-display tracking-tight" style={{color: '#FF006E'}}>
                           RAVE CAVE
                         </h1>
                       </div>
                     </div>
-                    
-                    <div className="flex-1 max-w-2xl">
+
+                    <div className="font-display text-xl lg:text-3xl tracking-tight flex flex-col items-end gap-0.5 lg:gap-1">
+                      <div>
+                        <span style={{color: '#CCFF00'}}>{totalBottles}</span>
+                        <span className="text-black text-sm lg:text-3xl"> BTL</span>
+                      </div>
+                      <div className="text-sm lg:text-xl">
+                        <span style={{color: '#FF006E'}}>{filteredWines.length}</span>
+                        <span className="text-black"> WINES</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Search bar - full width on mobile */}
+                  <div className="lg:flex lg:items-center lg:gap-4">
+                    <div className="flex-1 lg:max-w-2xl">
                       <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{color: '#CCFF00'}}>
-                          <SearchIcon className="w-6 h-6" />
+                        <div className="absolute left-3 lg:left-4 top-1/2 -translate-y-1/2" style={{color: '#CCFF00'}}>
+                          <SearchIcon className="w-5 h-5 lg:w-6 lg:h-6" />
                         </div>
                         <input
                           type="text"
-                          placeholder="SEARCH PRODUCER / GRAPE"
+                          placeholder="SEARCH"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-14 pr-4 py-4 bg-black border-4 border-black font-mono text-lg uppercase
+                          className="w-full pl-11 lg:pl-14 pr-3 lg:pr-4 py-3 lg:py-4 bg-black border-4 border-black font-mono text-sm lg:text-lg uppercase
                                    placeholder-[#CCFF00] focus:outline-none focus:border-[#FF006E] transition-all"
                           style={{color: '#CCFF00'}}
                         />
                       </div>
                     </div>
-
-                    <div className="font-display text-3xl tracking-tight flex flex-col items-end gap-1">
-                      <div>
-                        <span style={{color: '#CCFF00'}}>{totalBottles}</span>
-                        <span className="text-black"> BTL</span>
-                      </div>
-                      <div className="text-xl">
-                        <span style={{color: '#FF006E'}}>{filteredWines.length}</span>
-                        <span className="text-black"> WINES</span>
-                      </div>
-                    </div>
+                    <div className="hidden lg:block flex-1"></div>
+                  </div>
                   </div>
                 </div>
               </header>
@@ -1111,11 +1117,11 @@
                 {/* SIDEBAR */}
                 <aside className={`
                   ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                  fixed lg:sticky top-[100px] left-0 h-[calc(100vh-100px)] w-64 
+                  fixed lg:sticky top-[140px] lg:top-[100px] left-0 h-[calc(100vh-140px)] lg:h-[calc(100vh-100px)] w-80 lg:w-64 
                   bg-black border-r-6 border-black overflow-y-auto z-30
                   transition-transform duration-300 ease-in-out
                 `}>
-                  <div className="p-4 space-y-5">
+                  <div className="p-5 lg:p-4 space-y-6 lg:space-y-5">
                     <div className="flex items-center justify-between pb-3 border-b-3 border-[#CCFF00]">
                       <h2 className="text-2xl font-display tracking-tight" style={{color: '#CCFF00'}}>
                         FILTERS
@@ -1174,7 +1180,7 @@
                 )}
 
                 {/* MAIN GRID */}
-                <main className="flex-1 p-6 lg:p-12">
+                <main className="flex-1 p-3 sm:p-4 lg:p-12">
                   {filteredWines.length === 0 ? (
                     <div className="text-center py-20 border-8 border-black bg-white">
                       <div className="w-24 h-24 mx-auto mb-6" style={{color: '#FF006E'}}>
@@ -1189,7 +1195,7 @@
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-8">
                       {filteredWines.map((wine, index) => (
                         <WineCard 
                           key={index} 
@@ -1304,7 +1310,7 @@
               className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden flex flex-col`}
             >
               {/* IMAGE BLOCK - SQUARE CROP */}
-              <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
+              <div className={`relative h-48 sm:h-56 lg:h-64 overflow-hidden ${colors.accent}`}>
                 {imageUrl ? (
                   <img 
                     src={imageUrl.includes('drive.google.com') 
@@ -1341,19 +1347,19 @@
               </div>
 
               {/* INFO BLOCK - flex-grow fills remaining height */}
-              <div className={`${colors.bg} p-6 space-y-3 flex-grow`}>
+              <div className={`${colors.bg} p-4 lg:p-6 space-y-2 lg:space-y-3 flex-grow`}>
                 {/* GRAPE - HUGE */}
-                <div className={`font-display text-7xl leading-none ${colors.text} tracking-tighter uppercase`}>
+                <div className={`font-display text-5xl sm:text-6xl lg:text-7xl leading-none ${colors.text} tracking-tighter uppercase`}>
                   {getGrapeDisplay()}
                 </div>
 
                 {/* VINTAGE - SMALLER */}
-                <h3 className={`font-display text-4xl leading-tight ${colors.text} tracking-tight`}>
+                <h3 className={`font-display text-3xl sm:text-3xl lg:text-4xl leading-tight ${colors.text} tracking-tight`}>
                   {wine.Vintage}
                 </h3>
 
                 {/* PRODUCER - LARGER */}
-                <p className={`font-mono text-lg uppercase tracking-wide ${colors.text} opacity-70`}>
+                <p className={`font-mono text-sm lg:text-lg uppercase tracking-wide ${colors.text} opacity-70`}>
                   {wine.Producer}
                 </p>
 
@@ -1538,20 +1544,20 @@
                 </div>
 
                 {/* CONTENT */}
-                <div className="p-8 lg:p-12 space-y-8">
+                <div className="p-4 sm:p-6 lg:p-12 space-y-4 lg:space-y-8">
                   {/* MASSIVE TYPOGRAPHY */}
-                  <div className="space-y-4">
-                    <h2 className={`font-display text-6xl lg:text-8xl leading-none ${colors.text} uppercase tracking-tighter`}>
+                  <div className="space-y-2 lg:space-y-4">
+                    <h2 className={`font-display text-4xl sm:text-5xl lg:text-8xl leading-none ${colors.text} uppercase tracking-tighter`}>
                       {wine['Wine name']}
                     </h2>
-                    <p className={`font-display text-9xl leading-none tracking-tighter`}
+                    <p className={`font-display text-6xl sm:text-7xl lg:text-9xl leading-none tracking-tighter`}
                        style={{color: colors.bg === 'bg-white' ? '#FF006E' : '#CCFF00'}}>
                       {wine.Vintage}
                     </p>
                   </div>
 
                   {/* STICKER BADGES - LARGER */}
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex flex-wrap gap-2 lg:gap-4">
                     {vivinoRating && !isNaN(vivinoRating) && (
                       <div className="sticker-badge inline-flex items-center gap-2 px-5 py-3 bg-black border-4 border-black">
                         <StarIcon className="w-6 h-6" style={{color: '#CCFF00'}} />
