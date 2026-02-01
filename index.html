@@ -1627,11 +1627,42 @@
           );
         };
 
+        // Utility: Convert Google Drive URLs to direct image URLs
+        const getDirectImageUrl = (url) => {
+          if (!url) return url;
+          
+          // Handle Google Drive URLs
+          if (url.includes('drive.google.com')) {
+            // Extract file ID from various Google Drive URL formats
+            let fileId = null;
+            
+            // Format 1: /file/d/FILE_ID/view
+            const viewMatch = url.match(/\/file\/d\/([^\/]+)/);
+            if (viewMatch) {
+              fileId = viewMatch[1];
+            }
+            
+            // Format 2: /uc?id=FILE_ID or ?id=FILE_ID
+            const idMatch = url.match(/[?&]id=([^&]+)/);
+            if (idMatch) {
+              fileId = idMatch[1];
+            }
+            
+            // If we found a file ID, convert to direct image URL
+            if (fileId) {
+              return `https://drive.google.com/uc?export=view&id=${fileId}`;
+            }
+          }
+          
+          // Return original URL if not Google Drive or no ID found
+          return url;
+        };
+
         const WineCard = ({ wine, onClick, getMaturityStatus, getWineColors, isHero = false }) => {
           const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
           const colors = getWineColors(wine['Wine type']);
           const vivinoRating = parseFloat(wine['Vivino Rating']);
-          const imageUrl = wine['Label image'];
+          const imageUrl = getDirectImageUrl(wine['Label image']);
           const bottleCount = wine['Quantity'] || '1';
 
           // Strip emoji from maturity label
@@ -1702,18 +1733,16 @@
               <div className="aspect-square bg-white overflow-hidden">
                   {imageUrl ? (
                     <img 
-                      src={imageUrl.includes('drive.google.com') 
-                        ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
-                        : imageUrl
-                      } 
+                      src={imageUrl} 
                       alt={wine['Cépage']}
                       className="w-full h-full object-cover"
                       onError={(e) => {
+                        // Fallback: Try thumbnail format if direct view fails
                         if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
                           e.target.dataset.fallbackAttempted = 'true';
                           const fileIdMatch = imageUrl.match(/id=([^&]+)/);
                           if (fileIdMatch) {
-                            e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                            e.target.src = `https://drive.google.com/thumbnail?id=${fileIdMatch[1]}&sz=w500`;
                           }
                         }
                       }}
@@ -1806,7 +1835,7 @@
           const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
           const colors = getWineColors(wine['Wine type']);
           const vivinoRating = parseFloat(wine['Vivino Rating']);
-          const imageUrl = wine['Label image'];
+          const imageUrl = getDirectImageUrl(wine['Label image']);
 
           // Strip emoji from maturity label
           const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
@@ -1926,18 +1955,16 @@
                   {imageUrl ? (
                     <div className="relative h-96 overflow-hidden bg-black">
                       <img 
-                        src={imageUrl.includes('drive.google.com') 
-                          ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
-                          : imageUrl
-                        } 
+                        src={imageUrl} 
                         alt={wine['Wine name']}
                         className="w-full h-full object-contain"
                         onError={(e) => {
+                          // Fallback: Try thumbnail format if direct view fails
                           if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
                             e.target.dataset.fallbackAttempted = 'true';
                             const fileIdMatch = imageUrl.match(/id=([^&]+)/);
                             if (fileIdMatch) {
-                              e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                              e.target.src = `https://drive.google.com/thumbnail?id=${fileIdMatch[1]}&sz=w500`;
                             }
                           }
                         }}
