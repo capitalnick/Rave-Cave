@@ -1071,6 +1071,16 @@
                 });
                 
                 console.log('Parsed wines:', results.data.length);
+                
+                // Data validation - identify wines with missing Cépage
+                const winesWithoutCepage = results.data.filter(w => !w['Cépage'] || w['Cépage'].trim() === '');
+                if (winesWithoutCepage.length > 0) {
+                  console.warn(`⚠️ Found ${winesWithoutCepage.length} wines with missing Cépage (grape variety) data:`);
+                  winesWithoutCepage.forEach(w => {
+                    console.warn(`  - ${w.Producer} ${w['Wine name']} ${w.Vintage}`);
+                  });
+                }
+                
                 if (results.data.length > 0) {
                   setWines(results.data);
                   setLoading(false);
@@ -1194,7 +1204,7 @@
           }, [wines]);
 
           const filteredWines = useMemo(() => {
-            return wines.filter(wine => {
+            const filtered = wines.filter(wine => {
               const searchLower = searchTerm.toLowerCase();
               const matchesSearch = !searchTerm || 
                 wine.Producer?.toLowerCase().includes(searchLower) ||
@@ -1204,14 +1214,40 @@
               const matchesType = !filters.wineType.length || filters.wineType.includes(wine['Wine type']);
               
               // Check if any selected grape appears in this wine's cépage
-              const matchesCepage = !filters.cepage.length || 
-                filters.cepage.some(selectedGrape => {
-                  const wineGrapes = wine['Cépage']
-                    ?.split(/[\/&+,]|(?:\s+and\s+)/i)
-                    .map(g => g.trim())
-                    .filter(g => g.length > 0) || [];
-                  return wineGrapes.includes(selectedGrape);
-                });
+              // CRITICAL: If grape filters are active, wines MUST have Cépage data
+              const matchesCepage = (() => {
+                // No grape filters active - all wines pass
+                if (!filters.cepage.length) {
+                  return true;
+                }
+                
+                // Grape filters are active - wine MUST have Cépage data
+                const cepage = wine['Cépage'];
+                if (!cepage || cepage.trim() === '') {
+                  console.warn(`Wine excluded (empty Cépage):`, wine.Producer, wine['Wine name'], wine.Vintage);
+                  return false; // Exclude wines with no grape data when filtering by grape
+                }
+                
+                // Parse wine's grapes
+                const wineGrapes = cepage
+                  .split(/[\/&+,]|(?:\s+and\s+)/i)
+                  .map(g => g.trim())
+                  .filter(g => g.length > 0)
+                  .map(g => g.toLowerCase());
+                
+                // Check if any selected grape matches
+                const matches = filters.cepage.some(selectedGrape => 
+                  wineGrapes.includes(selectedGrape.toLowerCase())
+                );
+                
+                if (!matches) {
+                  console.log(`Wine excluded (no grape match):`, wine.Producer, wine['Wine name'], 
+                             'Has:', wineGrapes.join(', '), 
+                             'Looking for:', filters.cepage.join(', '));
+                }
+                
+                return matches;
+              })();
               
               const matchesAppellation = !filters.appellation.length || filters.appellation.includes(wine.Appellation);
               const matchesRegion = !filters.region.length || filters.region.includes(wine.Region);
@@ -1222,6 +1258,18 @@
 
               return matchesSearch && matchesType && matchesCepage && 
                      matchesAppellation && matchesRegion && matchesCountry && matchesMaturity;
+            });
+            
+            // Deduplicate wines based on unique ID
+            const seen = new Set();
+            return filtered.filter(wine => {
+              const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine.Appellation || ''}|${wine.Region || ''}`;
+              if (seen.has(wineId)) {
+                console.warn('Duplicate wine detected:', wineId);
+                return false;
+              }
+              seen.add(wineId);
+              return true;
             });
           }, [wines, searchTerm, filters]);
 
