@@ -1395,10 +1395,12 @@
                 <aside className={`
                   ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                   fixed lg:sticky top-0 lg:top-[90px] left-0 h-screen lg:h-[calc(100vh-90px)] w-full lg:w-64 
-                  bg-[#FAFAF8] border-r-2 border-[#EBEBDF] overflow-y-auto z-[100] lg:z-30
+                  bg-[#FAFAF8] border-r-2 border-[#EBEBDF] z-[100] lg:z-30
                   transition-transform duration-300 ease-in-out
+                  flex flex-col
                 `}>
-                  <div className="p-5 lg:p-4 space-y-6 lg:space-y-5 pt-8 lg:pt-5">
+                  {/* FIXED HEADER - doesn't scroll */}
+                  <div className="p-5 lg:p-4 space-y-4 flex-shrink-0">
                     {/* Header with neon underline */}
                     <div className="pb-3">
                       <div className="flex items-center justify-between mb-1">
@@ -1444,7 +1446,10 @@
                                    focus:outline-none focus:border-[#FF006E] transition-colors"
                       />
                     </div>
-
+                  </div>
+                  
+                  {/* SCROLLABLE FILTER SECTIONS */}
+                  <div className="flex-1 overflow-y-auto px-5 lg:px-4 pb-5 space-y-6 lg:space-y-5">
                     <BrutalFilterSection
                       title="GRAPE"
                       options={filterOptions.cepage || []}
@@ -1623,9 +1628,9 @@
               onClick={onClick}
               className={`cursor-pointer card-hover border-0 ${isHero ? colors.glow : ''} overflow-hidden flex flex-col relative bg-white`}
             >
-              {/* NEON TOP STRIP - Consistent 4px for all, wine-type color */}
+              {/* NEON TOP STRIP - Consistent 8px for all, wine-type color */}
               <div 
-                className="h-[4px]"
+                className="h-[8px]"
                 style={{backgroundColor: colors.stripColor}}
               />
               
