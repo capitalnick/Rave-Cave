@@ -1260,10 +1260,10 @@
                      matchesAppellation && matchesRegion && matchesCountry && matchesMaturity;
             });
             
-            // Deduplicate wines based on unique ID
+            // Deduplicate wines based on unique ID (includes Cépage for better uniqueness)
             const seen = new Set();
             return filtered.filter(wine => {
-              const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine.Appellation || ''}|${wine.Region || ''}`;
+              const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine['Cépage']}|${wine.Appellation || ''}|${wine.Region || ''}`;
               if (seen.has(wineId)) {
                 console.warn('Duplicate wine detected:', wineId);
                 return false;
@@ -1313,7 +1313,7 @@
               .slice(0, 2)
               .map(item => {
                 const w = item.wine;
-                return `${w.Producer}|${w['Wine name']}|${w.Vintage}|${w.Appellation || ''}|${w.Region || ''}`.replace(/\s+/g, '-');
+                return `${w.Producer}|${w['Wine name']}|${w.Vintage}|${w['Cépage']}|${w.Appellation || ''}|${w.Region || ''}`.replace(/\s+/g, '-');
               });
             
             return topWines;
@@ -1442,7 +1442,7 @@
                 {/* SIDEBAR - Gallery Curatorial Style */}
                 <aside className={`
                   ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                  fixed lg:sticky top-0 lg:top-[90px] left-0 h-screen lg:h-[calc(100vh-90px)] w-full lg:w-64 
+                  fixed top-0 lg:top-[90px] left-0 h-screen lg:h-[calc(100vh-90px)] w-full lg:w-64 
                   bg-[#FAFAF8] border-r-2 border-[#EBEBDF] z-[100] lg:z-30
                   transition-transform duration-300 ease-in-out
                   flex flex-col
@@ -1537,7 +1537,7 @@
 
 
                 {/* MAIN GRID */}
-                <main className="flex-1 p-3 sm:p-4 lg:p-12">
+                <main className="flex-1 p-3 sm:p-4 lg:p-12 lg:ml-64">
                   {filteredWines.length === 0 ? (
                     <div className="text-center py-20 border-8 border-black bg-white">
                       <div className="w-24 h-24 mx-auto mb-6" style={{color: '#FF006E'}}>
@@ -1554,8 +1554,8 @@
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-8">
                       {filteredWines.map((wine, index) => {
-                        // Robust wine ID to avoid collisions
-                        const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine.Appellation || ''}|${wine.Region || ''}`.replace(/\s+/g, '-');
+                        // Robust wine ID includes Cépage to avoid collisions
+                        const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine['Cépage']}|${wine.Appellation || ''}|${wine.Region || ''}`.replace(/\s+/g, '-');
                         const isHero = getHeroCards.includes(wineId);
                         
                         return (
