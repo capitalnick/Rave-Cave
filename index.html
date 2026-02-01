@@ -1012,10 +1012,9 @@
                     <div className="w-24 h-24 mx-auto animate-spin" style={{color: '#FF006E'}}>
                       <WineIcon className="w-full h-full" />
                     </div>
-                    <div className="absolute inset-0 neon-glow-pink animate-pulse-neon blur-2xl"></div>
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-6xl font-display text-black tracking-tight text-glow-pink" style={{color: '#FF006E'}}>
+                    <h2 className="text-6xl font-display text-black tracking-tight" style={{color: '#FF006E'}}>
                       RAVE CAVE
                     </h2>
                     <p className="text-sm font-mono uppercase tracking-widest" style={{color: '#CCFF00'}}>
@@ -1292,7 +1291,7 @@
           return (
             <div 
               onClick={onClick}
-              className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden flex flex-col`}
+              className={`cursor-pointer card-hover border-8 ${colors.border} overflow-hidden flex flex-col hover:${colors.glow} transition-shadow`}
             >
               {/* IMAGE BLOCK - SQUARE CROP */}
               <div className={`relative h-64 overflow-hidden ${colors.accent}`}>
