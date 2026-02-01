@@ -1027,6 +1027,7 @@
             region: [],
             country: [],
             maturity: [],
+            priceRange: [],
             vivinoRating: false
           });
 
@@ -1256,8 +1257,24 @@
               const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
               const matchesMaturity = !filters.maturity.length || filters.maturity.includes(maturity);
 
+              // Price range filtering
+              const matchesPriceRange = (() => {
+                if (!filters.priceRange.length) return true;
+                
+                const price = parseFloat(wine['Bottle Price']);
+                if (isNaN(price)) return false; // Exclude wines without valid price
+                
+                return filters.priceRange.some(range => {
+                  if (range === 'Under $30') return price < 30;
+                  if (range === '$30-$60') return price >= 30 && price < 60;
+                  if (range === '$60-$100') return price >= 60 && price < 100;
+                  if (range === '$100+') return price >= 100;
+                  return false;
+                });
+              })();
+
               return matchesSearch && matchesType && matchesCepage && 
-                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity;
+                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity && matchesPriceRange;
             });
             
             // Deduplicate wines based on unique ID (includes Cépage for better uniqueness)
@@ -1288,6 +1305,7 @@
               const rating = parseFloat(wine['Vivino Rating']) || 0;
               const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
               const quantity = parseInt(wine['Quantity']) || 1;
+              const price = parseFloat(wine['Bottle Price']) || 0;
               
               let score = 0;
               
@@ -1302,6 +1320,11 @@
               // Rarity weight
               if (quantity === 1) score += 60;
               else if (quantity <= 3) score += 30;
+              
+              // Luxury bias - weight toward higher-priced wines
+              if (price >= 200) score += 50;
+              else if (price >= 100) score += 30;
+              else if (price >= 60) score += 15;
               
               return { wine, score };
             });
@@ -1344,6 +1367,7 @@
               region: [],
               country: [],
               maturity: [],
+              priceRange: [],
               vivinoRating: false
             });
             setSearchTerm('');
@@ -1517,6 +1541,13 @@
                       options={['🍷 Drink Now', '🟢 Hold', '⚠️ Past Peak']}
                       selected={filters.maturity}
                       onToggle={(val) => toggleFilter('maturity', val)}
+                    />
+
+                    <BrutalFilterSection
+                      title="PRICE RANGE"
+                      options={['Under $30', '$30-$60', '$60-$100', '$100+']}
+                      selected={filters.priceRange}
+                      onToggle={(val) => toggleFilter('priceRange', val)}
                     />
 
                     <BrutalFilterSection
@@ -1847,6 +1878,27 @@
             return <ClockIcon className="w-6 h-6" />; // Hold
           };
 
+          // Format price for display
+          const formatPrice = (price) => {
+            if (!price || price === '') return '—';
+            const numPrice = parseFloat(price);
+            if (isNaN(numPrice)) return price;
+            return `$${numPrice.toFixed(numPrice % 1 === 0 ? 0 : 2)}`;
+          };
+
+          // Get format label for special sizes
+          const getFormatLabel = (format) => {
+            if (!format || format === '') return null;
+            const f = format.toLowerCase();
+            if (f === '1.5l' || f === '1500ml') return 'MAGNUM';
+            if (f === '375ml' || f === '0.375l') return 'HALF BOTTLE';
+            if (f === '187ml') return 'SPLIT';
+            if (f === '3l' || f === '3000ml') return 'DOUBLE MAGNUM';
+            if (f === '6l' || f === '6000ml') return 'IMPERIAL';
+            if (parseFloat(f) >= 3) return 'LARGE FORMAT';
+            return null; // Standard size, no badge
+          };
+
           // Track which field is being edited
           const [editingField, setEditingField] = React.useState(null);
           const [editValue, setEditValue] = React.useState('');
@@ -1885,7 +1937,7 @@
                 'Country': 8, 'Quantity': 9, 'Drink From': 10, 'Drink Until': 11,
                 'Maturity': 12, 'Tasting Notes': 13, 'My Rating': 14,
                 'Vivino Rating': 15, 'Personal Note': 16, 'Link to wine': 17,
-                'Label image': 18
+                'Label image': 18, 'Bottle Price': 19, 'Format': 20
               };
               
               const columnIndex = columnMap[key];
@@ -2082,7 +2134,20 @@
                               onClick={() => handleFieldClick(key, value)}
                               className="cursor-pointer hover:bg-yellow-100 block p-1 -m-1"
                             >
-                              {value || '(empty)'}
+                              {key === 'Bottle Price' ? (
+                                <span className="font-bold text-lg">{formatPrice(value)}</span>
+                              ) : key === 'Format' ? (
+                                <div className="flex items-center gap-2">
+                                  <span>{value || '750ml'}</span>
+                                  {getFormatLabel(value) && (
+                                    <span className="inline-block px-2 py-0.5 bg-[#FF006E] text-white text-[10px] font-bold uppercase tracking-wider">
+                                      {getFormatLabel(value)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                value || '(empty)'
+                              )}
                             </span>
                           )}
                         </dd>
