@@ -174,7 +174,7 @@
             position: fixed;
             bottom: 24px;
             right: 24px;
-            z-index: 100;
+            z-index: 150;
             font-family: 'Space Grotesk', sans-serif;
         }
 
@@ -198,17 +198,26 @@
 
         .chat-window {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
-            width: 480px;
-            height: 600px;
-            max-width: calc(100vw - 48px);
-            max-height: calc(100vh - 48px);
+            bottom: 0;
+            right: 0;
+            width: 100vw;
+            height: 100vh;
             background: var(--warm-beige);
             border: 8px solid var(--pure-black);
             display: flex;
             flex-direction: column;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (min-width: 1024px) {
+            .chat-window {
+                bottom: 24px;
+                right: 24px;
+                width: 480px;
+                height: 600px;
+                max-width: calc(100vw - 48px);
+                max-height: calc(100vh - 48px);
+            }
         }
 
         .chat-header {
@@ -798,7 +807,7 @@
           const [loading, setLoading] = useState(true);
           const [error, setError] = useState(null);
           const [searchTerm, setSearchTerm] = useState('');
-          const [sidebarOpen, setSidebarOpen] = useState(true);
+          const [sidebarOpen, setSidebarOpen] = useState(false);
           const [selectedWine, setSelectedWine] = useState(null);
           
           const [filters, setFilters] = useState({
@@ -1099,22 +1108,31 @@
                 {/* SIDEBAR */}
                 <aside className={`
                   ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                  fixed lg:sticky top-[100px] lg:top-[90px] left-0 h-[calc(100vh-100px)] lg:h-[calc(100vh-90px)] w-80 lg:w-64 
-                  bg-black border-r-6 border-black overflow-y-auto z-30
+                  fixed lg:sticky top-0 lg:top-[90px] left-0 h-screen lg:h-[calc(100vh-90px)] w-full lg:w-64 
+                  bg-black border-r-6 border-black overflow-y-auto z-[100] lg:z-30
                   transition-transform duration-300 ease-in-out
                 `}>
-                  <div className="p-5 lg:p-4 space-y-6 lg:space-y-5">
+                  <div className="p-5 lg:p-4 space-y-6 lg:space-y-5 pt-8 lg:pt-5">
                     <div className="flex items-center justify-between pb-3 border-b-3 border-[#CCFF00]">
                       <h2 className="text-2xl font-display tracking-tight" style={{color: '#CCFF00'}}>
                         FILTERS
                       </h2>
-                      <button
-                        onClick={clearAllFilters}
-                        className="text-[10px] font-mono uppercase tracking-wider hover:text-[#FF006E] transition-colors"
-                        style={{color: '#CCFF00'}}
-                      >
-                        CLEAR
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={clearAllFilters}
+                          className="text-[10px] font-mono uppercase tracking-wider hover:text-[#FF006E] transition-colors"
+                          style={{color: '#CCFF00'}}
+                        >
+                          CLEAR
+                        </button>
+                        <button
+                          onClick={() => setSidebarOpen(false)}
+                          className="lg:hidden p-2 hover:bg-[#FF006E] transition-colors"
+                          style={{color: '#CCFF00'}}
+                        >
+                          <XIcon className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* SEARCH */}
@@ -1170,12 +1188,6 @@
                   </div>
                 </aside>
 
-                {sidebarOpen && (
-                  <div 
-                    className="lg:hidden fixed inset-0 bg-black/80 z-20 top-[100px]"
-                    onClick={() => setSidebarOpen(false)}
-                  />
-                )}
 
                 {/* MAIN GRID */}
                 <main className="flex-1 p-3 sm:p-4 lg:p-12">
@@ -1364,7 +1376,7 @@
                 {/* STICKER BADGES */}
                 <div className="flex flex-wrap gap-2 pt-2">
                   {vivinoRating && !isNaN(vivinoRating) && vivinoRating > 0 && (
-                    <div className="sticker-badge inline-flex items-center gap-1 px-3 py-1.5 bg-black border-2 border-black">
+                    <div className="sticker-badge inline-flex items-center gap-1 px-2 py-1.5 bg-black border-2 border-black">
                       <StarIcon style={{color: '#CCFF00'}} />
                       <span className="font-mono text-xs font-bold" style={{color: '#CCFF00'}}>
                         {vivinoRating.toFixed(1)}
@@ -1396,6 +1408,16 @@
           const colors = getWineColors(wine['Wine type']);
           const vivinoRating = parseFloat(wine['Vivino Rating']);
           const imageUrl = wine['Label image'];
+
+          // Strip emoji from maturity label
+          const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
+
+          // Get icon component based on maturity
+          const getMaturityIcon = () => {
+            if (maturity === '🍷 Drink Now') return <WineIcon className="w-6 h-6" />;
+            if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-6 h-6" />;
+            return <ClockIcon className="w-6 h-6" />; // Hold
+          };
 
           // Track which field is being edited
           const [editingField, setEditingField] = React.useState(null);
@@ -1486,11 +1508,11 @@
 
           return (
             <div 
-              className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto"
               onClick={onClose}
             >
               <div 
-                className={`${colors.bg} border-8 ${colors.border} max-w-6xl w-full max-h-[95vh] overflow-y-auto`}
+                className={`${colors.bg} border-0 sm:border-8 ${colors.border} max-w-full sm:max-w-6xl w-full min-h-full sm:min-h-0 sm:max-h-[95vh] overflow-y-auto`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* HEADER WITH MASSIVE IMAGE */}
@@ -1556,20 +1578,26 @@
 
                   {/* STICKER BADGES - LARGER */}
                   <div className="flex flex-wrap gap-2 lg:gap-4">
-                    {vivinoRating && !isNaN(vivinoRating) && (
-                      <div className="sticker-badge inline-flex items-center gap-2 px-5 py-3 bg-black border-4 border-black">
+                    {vivinoRating && !isNaN(vivinoRating) && vivinoRating > 0 && (
+                      <div className="sticker-badge inline-flex items-center justify-center gap-2 px-5 py-3 bg-black border-4 border-black">
                         <StarIcon className="w-6 h-6" style={{color: '#CCFF00'}} />
-                        <span className="font-display text-2xl" style={{color: '#CCFF00'}}>
+                        <span className="font-display text-2xl font-bold" style={{color: '#CCFF00'}}>
                           {vivinoRating.toFixed(1)}
                         </span>
                       </div>
                     )}
                     
-                    <div className="sticker-badge inline-flex items-center gap-2 px-5 py-3 border-4 border-black"
-                         style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : '#FF006E'}}>
-                      <ClockIcon className="w-6 h-6 text-black" />
-                      <span className="font-display text-2xl text-black">
-                        {maturity}
+                    <div className={`sticker-badge inline-flex items-center gap-2 px-5 py-3 border-4 ${
+                      maturity === '⚠️ Past Peak' ? 'border-[#FF006E] bg-black' : 'border-black'
+                    }`}
+                         style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : undefined}}>
+                      <span className={maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'}>
+                        {getMaturityIcon()}
+                      </span>
+                      <span className={`font-display text-2xl font-bold ${
+                        maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'
+                      }`}>
+                        {maturityLabel}
                       </span>
                     </div>
 
