@@ -1077,7 +1077,7 @@
         // API Configuration
         // ⚠️ UPDATE THIS URL WITH YOUR NEW v3 DEPLOYMENT URL
         // Get this from: Apps Script → Deploy → New deployment → Copy URL
-        const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzzWIl0nFJfYMCQeMUrH86u8LRUmp4kmGuUF6ClwsohBUSBNiKZk2bpAnmKeKI3DYEt/exec';
+        const GEMINI_ENDPOINT = 'https://script.google.com/macros/s/YOUR_NEW_DEPLOYMENT_ID_HERE/exec';
         const SHEET_API_URL = GEMINI_ENDPOINT; // Same endpoint, different action
 
         const RaveCave = () => {
@@ -1941,6 +1941,38 @@
           // Strip emoji from maturity label
           const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
 
+          // FIX 1 & 2: Scroll to top when modal opens, and add browser history
+          React.useEffect(() => {
+            // Scroll modal content to top
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            
+            // Add history entry so back button closes modal instead of navigating away
+            const handlePopState = (e) => {
+              onClose();
+            };
+            
+            // Push a new history state when modal opens
+            window.history.pushState({ modalOpen: true }, '');
+            
+            // Listen for back button
+            window.addEventListener('popstate', handlePopState);
+            
+            // Cleanup: remove listener when modal closes
+            return () => {
+              window.removeEventListener('popstate', handlePopState);
+            };
+          }, [onClose]);
+
+          // Wrapper to handle manual close (X button or background click)
+          // Goes back in history if we added a state, otherwise just closes
+          const handleClose = () => {
+            if (window.history.state?.modalOpen) {
+              window.history.back(); // This will trigger popstate, which calls onClose
+            } else {
+              onClose(); // Fallback if no history state
+            }
+          };
+
           // Get icon component based on maturity
           const getMaturityIcon = () => {
             if (maturity === '🍷 Drink Now') return <WineIcon className="w-6 h-6" />;
@@ -2086,7 +2118,7 @@
           return (
             <div 
               className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto"
-              onClick={onClose}
+              onClick={handleClose}
             >
               <div 
                 className={`${colors.bg} border-0 sm:border-8 ${colors.border} max-w-full sm:max-w-6xl w-full min-h-full sm:min-h-0 sm:max-h-[95vh] overflow-y-auto`}
@@ -2118,13 +2150,16 @@
                     </div>
                   )}
                   
-                  {/* CLOSE BUTTON */}
+                  {/* FIX 3: MUCH MORE VISIBLE CLOSE BUTTON ON MOBILE */}
                   <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 p-3 bg-black hover:bg-[#FF006E] border-4 border-[#CCFF00] transition-colors"
+                    onClick={handleClose}
+                    className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 px-4 py-2 sm:px-3 sm:py-3 
+                               bg-black hover:bg-[#FF006E] border-4 border-[#CCFF00] transition-colors 
+                               font-mono text-xs sm:text-sm font-bold uppercase tracking-wider z-10"
                     style={{color: '#CCFF00'}}
                   >
-                    <XIcon />
+                    <XIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <span className="inline sm:hidden">CLOSE</span>
                   </button>
 
                   {/* DIAGONAL ACCENT */}
