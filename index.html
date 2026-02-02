@@ -353,6 +353,44 @@
             text-align: center;
         }
 
+        /* WEEK 1: Thinking state animation */
+        .chat-message.thinking {
+            background: var(--acid-green);
+            color: var(--pure-black);
+            opacity: 0.8;
+        }
+
+        .thinking-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .thinking-dots .dot {
+            animation: thinking-pulse 1.4s infinite;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .thinking-dots .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .thinking-dots .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes thinking-pulse {
+            0%, 60%, 100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+            30% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
         /* Markdown-style formatting in messages */
         .chat-message strong,
         .chat-message b {
@@ -764,6 +802,14 @@
           const sendMessage = async () => {
             if ((!input.trim() && !selectedImage) || loading) return;
 
+            // WEEK 1: Client-side timing starts
+            const clientTimings = {
+              start: Date.now(),
+              apiCall: 0,
+              uiRender: 0,
+              total: 0
+            };
+
             const userMessage = input.trim() || '📸 [Photo of wine label]';
             setInput('');
             
@@ -772,6 +818,15 @@
               id: `msg-${messageIdRef.current++}`,
               type: 'user', 
               text: userMessage 
+            }]);
+            
+            // WEEK 1: Add optimistic "thinking" message immediately
+            const thinkingId = `msg-${messageIdRef.current++}`;
+            setMessages(prev => [...prev, {
+              id: thinkingId,
+              type: 'assistant',
+              text: '🍷 Rémy is tasting...',
+              isThinking: true
             }]);
             
             // Build message for Gemini - different structure if image is present
@@ -817,6 +872,7 @@
             try {
               console.log('Sending to Gemini with history:', newGeminiHistory);
               
+              const apiCallStart = Date.now();
               const response = await fetch(GEMINI_ENDPOINT, {
                 method: 'POST',
                 mode: 'cors',
@@ -827,6 +883,7 @@
                   history: newGeminiHistory
                 })
               });
+              clientTimings.apiCall = Date.now() - apiCallStart;
 
               console.log('Response status:', response.status);
               
@@ -847,7 +904,8 @@
               
               if (!botReply || botReply.trim() === '') {
                 console.error('No valid reply found in response. Full data:', JSON.stringify(data));
-                setMessages(prev => [...prev, { 
+                // Remove thinking message and add error
+                setMessages(prev => prev.filter(msg => msg.id !== thinkingId).concat({ 
                   id: `msg-${messageIdRef.current++}`,
                   type: 'bot', 
                   text: '🍷 My apologies, I seem to have momentarily lost my train of thought. Could you rephrase that?' 
@@ -858,12 +916,20 @@
               
               console.log('Bot reply:', botReply);
               
-              // Add bot response to UI with stable ID
-              setMessages(prev => [...prev, { 
-                id: `msg-${messageIdRef.current++}`,
-                type: 'bot', 
-                text: botReply
-              }]);
+              // WEEK 1: Replace thinking message with actual response
+              const uiRenderStart = Date.now();
+              setMessages(prev => prev.map(msg => 
+                msg.id === thinkingId 
+                  ? { ...msg, text: botReply, isThinking: false }
+                  : msg
+              ));
+              clientTimings.uiRender = Date.now() - uiRenderStart;
+              clientTimings.total = Date.now() - clientTimings.start;
+              
+              // WEEK 1: Log client-side timing
+              console.log(`⏱️ CLIENT TIMING (Total: ${clientTimings.total}ms):
+  🌐 API Call: ${clientTimings.apiCall}ms
+  🎨 UI Render: ${clientTimings.uiRender}ms`);
               
               // Add bot response to Gemini history in correct format
               setGeminiHistory([
@@ -876,11 +942,12 @@
               
             } catch (error) {
               console.error('Chat error details:', error);
-              setMessages(prev => [...prev, { 
+              // Remove thinking message and add error
+              setMessages(prev => prev.filter(msg => msg.id !== thinkingId).concat({ 
                 id: `msg-${messageIdRef.current++}`,
                 type: 'bot', 
                 text: `⚠️ Error: ${error.message}` 
-              }]);
+              }));
             } finally {
               setLoading(false);
             }
@@ -930,16 +997,22 @@
                   {messages.map((msg) => (
                     <div 
                       key={msg.id} 
-                      className={`chat-message ${msg.type}`}
+                      className={`chat-message ${msg.type} ${msg.isThinking ? 'thinking' : ''}`}
                     >
-                      <SafeMarkdown text={msg.text} />
+                      {msg.isThinking ? (
+                        <div className="flex items-center gap-2">
+                          <span>{msg.text}</span>
+                          <span className="thinking-dots">
+                            <span className="dot">.</span>
+                            <span className="dot">.</span>
+                            <span className="dot">.</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <SafeMarkdown text={msg.text} />
+                      )}
                     </div>
                   ))}
-                  {loading && (
-                    <div className="chat-message loading">
-                      THINKING...
-                    </div>
-                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
