@@ -10,10 +10,10 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts: Space Grotesk (brutalist display) + IBM Plex Mono (data) -->
+    <!-- Google Fonts: Inter (grotesk) + JetBrains Mono (mono) + Bebas Neue (display fallback) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Bebas+Neue&display=swap" rel="stylesheet">
     
     <style>
         * {
@@ -23,51 +23,124 @@
         }
         
         :root {
-            /* FLUORO PALETTE */
-            --neon-pink: #FF006E;
-            --hot-pink: #FF1B8D;
-            --watermelon: #FF2E63;
-            --acid-green: #CCFF00;
-            --electric-lime: #39FF14;
+            /* GALLERY POSTER PALETTE - Final */
+            
+            /* Surfaces - 80-85% of UI */
+            --gallery-white: #FAFAF8;
+            --paper-beige: #F5F0E8;
+            --matte-cream: #EBEBDF;
+            --sand: #F5E6D3;           /* Dessert/fortified wine surface */
+            --blush: #FFF5F7;          /* Rosé surface */
+            --blush-matte: #FFE5EC;    /* Rosé matte frame */
+            
+            /* Typography Anchors */
+            --ink-black: #0A0A0A;
+            --charcoal: #2A2A2A;
+            --gray-medium: #878787;
+            
+            /* Neon Accents - 15-20% of UI - THREE ONLY */
+            --neon-pink: #FF006E;      /* Red wine / Primary */
+            --acid-green: #CCFF00;     /* White wine / Secondary */
+            --coral: #FF6B9D;          /* Rosé ONLY */
+            
+            /* Semantic States */
+            --danger: #FF3333;         /* Past Peak */
+            --success: var(--acid-green);
+            --hold: var(--charcoal);
+            
+            /* Utility */
             --electric-white: #FFFFFF;
-            --warm-beige: #F5E6D3;
-            --pure-black: #000000;
-            --dark-grey: #1A1A1A;
+            
+            /* Font Families */
+            --display: 'Bebas Neue', sans-serif;
+            --grotesk: 'Inter', sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+            
+            /* Legacy aliases for backwards compatibility */
+            --pure-black: var(--ink-black);
+            --warm-beige: var(--paper-beige);
         }
         
         body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: var(--warm-beige);
+            font-family: 'Inter', sans-serif;
+            background: var(--gallery-white);
             overflow-x: hidden;
-            color: var(--pure-black);
+            color: var(--ink-black);
         }
         
+        /* Typography System - Gallery Edition */
         .font-display {
             font-family: 'Bebas Neue', sans-serif;
-            letter-spacing: 0.02em;
+            letter-spacing: -0.04em;  /* Tight condensed */
+            line-height: 0.9;
+        }
+        
+        .font-grotesk {
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.01em;
+            line-height: 1.4;
         }
         
         .font-mono {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.035em;  /* Refined from 0.05em */
+            text-transform: uppercase;
         }
         
-        /* Custom scrollbar */
+        /* Modal vintage - dramatic scaling */
+        .modal-vintage {
+            font-size: 140px;
+            line-height: 0.85;
+            color: var(--ink-black);
+        }
+        
+        @supports (mix-blend-mode: multiply) {
+            .modal-vintage {
+                mix-blend-mode: multiply;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .modal-vintage {
+                font-size: 88px;
+            }
+        }
+        
+        /* Custom scrollbar - Gallery aesthetic (quiet) */
         ::-webkit-scrollbar {
             width: 12px;
             height: 12px;
         }
         
         ::-webkit-scrollbar-track {
-            background: var(--pure-black);
+            background: var(--matte-cream);
         }
         
         ::-webkit-scrollbar-thumb {
             background: var(--acid-green);
-            border: 2px solid var(--pure-black);
+            border: 2px solid var(--ink-black);
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--neon-pink);
+            background: var(--charcoal);
+        }
+
+        /* Filter scrollbar - black instead of fluorescent */
+        .filter-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .filter-scrollbar::-webkit-scrollbar-track {
+            background: var(--matte-cream);
+        }
+        
+        .filter-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--ink-black);
+            border-radius: 4px;
+        }
+        
+        .filter-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--charcoal);
         }
 
         /* Neon glow effects */
@@ -150,23 +223,36 @@
             color: var(--pure-black);
         }
 
-        /* Angular hover effects */
+        /* Gallery poster hover - Lift + sharp outline */
         .card-hover {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-                        box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .card-hover:hover {
-            transform: translateY(-8px) rotate(-2deg);
+            transform: translateY(-4px);  /* Subtle lift only */
+            box-shadow: 
+                0 0 0 2px var(--ink-black),       /* Sharp outline */
+                0 8px 24px rgba(0, 0, 0, 0.08);   /* Soft shadow */
         }
 
-        /* Glow on hover - applied per wine type */
+        /* Optional glow for specific wine types - subtle */
         .card-hover.glow-pink:hover {
-            box-shadow: 0 0 20px rgba(255, 0, 110, 0.5), 0 0 40px rgba(255, 0, 110, 0.3);
+            box-shadow: 
+                0 0 0 2px var(--neon-pink),
+                0 8px 24px rgba(255, 0, 110, 0.15);
         }
 
         .card-hover.glow-green:hover {
-            box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), 0 0 40px rgba(204, 255, 0, 0.3);
+            box-shadow: 
+                0 0 0 2px var(--acid-green),
+                0 8px 24px rgba(204, 255, 0, 0.15);
+        }
+
+        .card-hover.glow-coral:hover {
+            box-shadow: 
+                0 0 0 2px var(--coral),
+                0 8px 24px rgba(255, 107, 157, 0.15);
         }
 
         /* CHAT WIDGET STYLES */
@@ -175,25 +261,26 @@
             bottom: 24px;
             right: 24px;
             z-index: 150;
-            font-family: 'Space Grotesk', sans-serif;
+            font-family: 'Inter', sans-serif;
         }
 
         .chat-bubble {
             width: 64px;
             height: 64px;
-            background: var(--neon-pink);
-            border: 4px solid var(--pure-black);
+            background: var(--gallery-white);
+            border: 4px solid var(--ink-black);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 0 20px rgba(255, 0, 110, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .chat-bubble:hover {
-            background: var(--acid-green);
-            transform: rotate(5deg) scale(1.1);
+            background: var(--neon-pink);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
         }
 
         .chat-window {
@@ -221,13 +308,13 @@
         }
 
         .chat-header {
-            background: var(--pure-black);
-            color: var(--acid-green);
+            background: var(--gallery-white);
+            color: var(--ink-black);
             padding: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 4px solid var(--neon-pink);
+            border-bottom: 2px solid var(--matte-cream);
         }
 
         .chat-messages {
@@ -262,7 +349,7 @@
         .chat-message.loading {
             background: var(--electric-white);
             border-style: dashed;
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: 'JetBrains Mono', monospace;
             text-align: center;
         }
 
@@ -308,7 +395,7 @@
         }
 
         .chat-message code {
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: 'JetBrains Mono', monospace;
             background: rgba(0, 0, 0, 0.1);
             padding: 2px 4px;
             border-radius: 3px;
@@ -328,7 +415,7 @@
             border: 3px solid var(--acid-green);
             background: var(--pure-black);
             color: var(--acid-green);
-            font-family: 'IBM Plex Mono', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
         }
 
@@ -339,18 +426,21 @@
 
         .chat-send-btn {
             padding: 12px 20px;
-            background: var(--acid-green);
-            border: 3px solid var(--pure-black);
-            color: var(--pure-black);
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 18px;
+            background: var(--ink-black);
+            border: 3px solid var(--ink-black);
+            color: var(--electric-white);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
         .chat-send-btn:hover {
-            background: var(--neon-pink);
-            color: white;
+            background: var(--charcoal);
+            border-color: var(--charcoal);
         }
 
         .chat-send-btn:disabled {
@@ -483,34 +573,144 @@
         );
 
         // Simple markdown-to-HTML converter
-        const parseMarkdown = (text) => {
-          return text
-            // Headers
-            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-            // Bold
-            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            // Italic
-            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            // Lists
-            .replace(/^\* (.+)$/gim, '<li>$1</li>')
-            .replace(/^- (.+)$/gim, '<li>$1</li>')
-            // Wrap consecutive list items in ul
-            .replace(/(<li>.*<\/li>(?:\n|$))+/g, '<ul>$&</ul>')
+        // Safe markdown renderer - returns React elements, no XSS risk
+        const SafeMarkdown = ({ text }) => {
+          const lines = text.split('\n');
+          const elements = [];
+          let listItems = [];
+          let key = 0;
+
+          const flushList = () => {
+            if (listItems.length > 0) {
+              elements.push(<ul key={`ul-${key++}`}>{listItems}</ul>);
+              listItems = [];
+            }
+          };
+
+          const processInline = (line) => {
+            // Escape HTML entities
+            const escapeHtml = (str) => str
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+
+            let parts = [{ text: line, type: 'text' }];
+
+            // Process inline code first (to avoid processing markdown inside code)
+            parts = parts.flatMap(part => {
+              if (part.type !== 'text') return [part];
+              const codeRegex = /`([^`]+)`/g;
+              const result = [];
+              let lastIndex = 0;
+              let match;
+
+              while ((match = codeRegex.exec(part.text)) !== null) {
+                if (match.index > lastIndex) {
+                  result.push({ text: part.text.slice(lastIndex, match.index), type: 'text' });
+                }
+                result.push({ text: match[1], type: 'code' });
+                lastIndex = match.index + match[0].length;
+              }
+              if (lastIndex < part.text.length) {
+                result.push({ text: part.text.slice(lastIndex), type: 'text' });
+              }
+              return result.length > 0 ? result : [part];
+            });
+
+            // Process bold/italic (only in text parts)
+            parts = parts.flatMap(part => {
+              if (part.type !== 'text') return [part];
+              const boldItalicRegex = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*/g;
+              const result = [];
+              let lastIndex = 0;
+              let match;
+
+              while ((match = boldItalicRegex.exec(part.text)) !== null) {
+                if (match.index > lastIndex) {
+                  result.push({ text: part.text.slice(lastIndex, match.index), type: 'text' });
+                }
+                if (match[1]) result.push({ text: match[1], type: 'bolditalic' });
+                else if (match[2]) result.push({ text: match[2], type: 'bold' });
+                else if (match[3]) result.push({ text: match[3], type: 'italic' });
+                lastIndex = match.index + match[0].length;
+              }
+              if (lastIndex < part.text.length) {
+                result.push({ text: part.text.slice(lastIndex), type: 'text' });
+              }
+              return result.length > 0 ? result : [part];
+            });
+
+            // Convert to React elements - no escaping needed, React handles it
+            return parts.map((part, i) => {
+              if (part.type === 'code') {
+                return <code key={i} style={{
+                  backgroundColor: 'var(--matte-cream)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.9em'
+                }}>{part.text}</code>;
+              }
+              if (part.type === 'bold') {
+                return <strong key={i}>{part.text}</strong>;
+              }
+              if (part.type === 'italic') {
+                return <em key={i}>{part.text}</em>;
+              }
+              if (part.type === 'bolditalic') {
+                return <strong key={i}><em>{part.text}</em></strong>;
+              }
+              return <span key={i}>{part.text}</span>;
+            });
+          };
+
+          lines.forEach((line, idx) => {
+            // Headings
+            if (line.startsWith('### ')) {
+              flushList();
+              elements.push(<h3 key={`h3-${key++}`}>{processInline(line.slice(4))}</h3>);
+            } else if (line.startsWith('## ')) {
+              flushList();
+              elements.push(<h2 key={`h2-${key++}`}>{processInline(line.slice(3))}</h2>);
+            } else if (line.startsWith('# ')) {
+              flushList();
+              elements.push(<h1 key={`h1-${key++}`}>{processInline(line.slice(2))}</h1>);
+            }
             // Horizontal rule
-            .replace(/^---$/gim, '<hr>')
-            // Line breaks
-            .replace(/\n/g, '<br>');
+            else if (line.trim() === '---') {
+              flushList();
+              elements.push(<hr key={`hr-${key++}`} />);
+            }
+            // List items
+            else if (line.startsWith('* ') || line.startsWith('- ')) {
+              listItems.push(<li key={`li-${key++}`}>{processInline(line.slice(2))}</li>);
+            }
+            // Regular text
+            else if (line.trim()) {
+              flushList();
+              elements.push(<p key={`p-${key++}`}>{processInline(line)}</p>);
+            }
+            // Empty line
+            else {
+              flushList();
+              elements.push(<br key={`br-${key++}`} />);
+            }
+          });
+
+          flushList(); // Flush any remaining list items
+          return <>{elements}</>;
         };
+
 
         const ChatWidget = () => {
           const [isOpen, setIsOpen] = useState(false);
           const [messages, setMessages] = useState([
             {
+              id: 'msg-0',
               type: 'bot',
-              text: '🍷 Hey! I\'m your personal sommelier. Ask me about wine pairings, tasting notes, your collection, or **take a photo** of a wine label to add it to your cellar!'
+              text: '🍷 Bonjour! I\'m Rémy, your personal sommelier. Ask me about wine pairings, tasting notes, your collection, or **take a photo** of a wine label to add it to your cellar!'
             }
           ]);
           const [input, setInput] = useState('');
@@ -518,6 +718,7 @@
           const [geminiHistory, setGeminiHistory] = useState([]); // Track Gemini-format history
           const [selectedImage, setSelectedImage] = useState(null); // Base64 image
           const [imagePreview, setImagePreview] = useState(null); // Preview URL
+          const messageIdRef = React.useRef(1); // Counter for stable message IDs
           const messagesEndRef = React.useRef(null);
           const fileInputRef = React.useRef(null);
 
@@ -566,8 +767,12 @@
             const userMessage = input.trim() || '📸 [Photo of wine label]';
             setInput('');
             
-            // Add user message to UI
-            setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
+            // Add user message to UI with stable ID
+            setMessages(prev => [...prev, { 
+              id: `msg-${messageIdRef.current++}`,
+              type: 'user', 
+              text: userMessage 
+            }]);
             
             // Build message for Gemini - different structure if image is present
             let newGeminiHistory;
@@ -643,6 +848,7 @@
               if (!botReply || botReply.trim() === '') {
                 console.error('No valid reply found in response. Full data:', JSON.stringify(data));
                 setMessages(prev => [...prev, { 
+                  id: `msg-${messageIdRef.current++}`,
                   type: 'bot', 
                   text: '🍷 My apologies, I seem to have momentarily lost my train of thought. Could you rephrase that?' 
                 }]);
@@ -652,8 +858,9 @@
               
               console.log('Bot reply:', botReply);
               
-              // Add bot response to UI
+              // Add bot response to UI with stable ID
               setMessages(prev => [...prev, { 
+                id: `msg-${messageIdRef.current++}`,
                 type: 'bot', 
                 text: botReply
               }]);
@@ -670,6 +877,7 @@
             } catch (error) {
               console.error('Chat error details:', error);
               setMessages(prev => [...prev, { 
+                id: `msg-${messageIdRef.current++}`,
                 type: 'bot', 
                 text: `⚠️ Error: ${error.message}` 
               }]);
@@ -692,7 +900,7 @@
                   className="chat-bubble"
                   onClick={() => setIsOpen(true)}
                 >
-                  <ChatIcon style={{color: '#CCFF00'}} />
+                  <ChatIcon style={{color: 'var(--ink-black)'}} />
                 </div>
               </div>
             );
@@ -704,27 +912,28 @@
                 {/* Header */}
                 <div className="chat-header">
                   <div>
-                    <h3 className="font-display text-2xl tracking-tight">SOMMELIER AI</h3>
-                    <p className="font-mono text-xs" style={{color: '#FF006E'}}>
-                      YOUR WINE GUIDE
+                    <h3 className="font-grotesk font-bold text-xl tracking-tight">Sommelier Rémy</h3>
+                    <p className="font-mono text-xs" style={{color: 'var(--gray-medium)'}}>
+                      Your AI Wine Guide
                     </p>
                   </div>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="p-2 hover:bg-[#FF006E] transition-colors"
+                    className="p-2 hover:bg-[#EBEBDF] transition-colors"
                   >
-                    <XIcon style={{color: '#CCFF00'}} className="w-5 h-5" />
+                    <XIcon style={{color: 'var(--ink-black)'}} className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Messages */}
                 <div className="chat-messages">
-                  {messages.map((msg, idx) => (
+                  {messages.map((msg) => (
                     <div 
-                      key={idx} 
+                      key={msg.id} 
                       className={`chat-message ${msg.type}`}
-                      dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }}
-                    />
+                    >
+                      <SafeMarkdown text={msg.text} />
+                    </div>
                   ))}
                   {loading && (
                     <div className="chat-message loading">
@@ -818,6 +1027,7 @@
             region: [],
             country: [],
             maturity: [],
+            priceRange: [],
             vivinoRating: false
           });
 
@@ -834,48 +1044,60 @@
             fetchWineData();
           }, []);
 
-          const fetchWineData = async (proxyIndex = 0) => {
-            try {
-              console.log('Fetching wine data...');
-              const proxy = CORS_PROXIES[proxyIndex];
-              const url = proxy ? proxy + encodeURIComponent(CSV_URL) : CSV_URL;
-              
-              const response = await fetch(url);
-              
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              
-              const csvText = await response.text();
-              console.log('CSV fetched, parsing...');
-              
-              window.Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => {
-                  console.log('Parsed wines:', results.data.length);
-                  if (results.data.length > 0) {
-                    setWines(results.data);
-                    setLoading(false);
-                  } else {
-                    throw new Error('No data in CSV');
-                  }
-                },
-                error: (error) => {
-                  console.error('Parse error:', error);
-                  throw error;
+          const fetchWineData = async () => {
+            // Loop through proxies instead of recursion
+            for (let proxyIndex = 0; proxyIndex < CORS_PROXIES.length; proxyIndex++) {
+              try {
+                console.log(`Fetching wine data (attempt ${proxyIndex + 1}/${CORS_PROXIES.length})...`);
+                const proxy = CORS_PROXIES[proxyIndex];
+                const url = proxy ? proxy + encodeURIComponent(CSV_URL) : CSV_URL;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
                 }
-              });
-            } catch (error) {
-              console.error('Fetch error:', error);
-              
-              // Try next proxy
-              if (proxyIndex < CORS_PROXIES.length - 1) {
-                console.log(`Trying proxy ${proxyIndex + 1}...`);
-                fetchWineData(proxyIndex + 1);
-              } else {
-                setError('Error loading wine data - please refresh');
-                setLoading(false);
+                
+                const csvText = await response.text();
+                console.log('CSV fetched, parsing...');
+                
+                // Promisify PapaParse
+                const results = await new Promise((resolve, reject) => {
+                  window.Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: resolve,
+                    error: reject
+                  });
+                });
+                
+                console.log('Parsed wines:', results.data.length);
+                
+                // Data validation - identify wines with missing Cépage
+                const winesWithoutCepage = results.data.filter(w => !w['Cépage'] || w['Cépage'].trim() === '');
+                if (winesWithoutCepage.length > 0) {
+                  console.warn(`⚠️ Found ${winesWithoutCepage.length} wines with missing Cépage (grape variety) data:`);
+                  winesWithoutCepage.forEach(w => {
+                    console.warn(`  - ${w.Producer} ${w['Wine name']} ${w.Vintage}`);
+                  });
+                }
+                
+                if (results.data.length > 0) {
+                  setWines(results.data);
+                  setLoading(false);
+                  return; // Success! Exit loop
+                } else {
+                  throw new Error('No data in CSV');
+                }
+              } catch (error) {
+                console.error(`Fetch error (proxy ${proxyIndex}):`, error);
+                
+                // If this is the last proxy, set error state
+                if (proxyIndex === CORS_PROXIES.length - 1) {
+                  setError('Error loading wine data - please refresh');
+                  setLoading(false);
+                }
+                // Otherwise continue to next proxy
               }
             }
           };
@@ -895,42 +1117,67 @@
           const getWineColors = (wineType) => {
             const type = wineType?.toLowerCase() || '';
             
-            if (type.includes('red')) {
+            // Rosé
+            if (type.includes('rosé') || type.includes('rose')) {
               return {
-                bg: 'bg-[#FF006E]',
-                accent: 'bg-[#CCFF00]',
-                accentText: 'text-black',
-                text: 'text-white',
-                border: 'border-black',
-                glow: 'glow-pink'
-              };
-            } else if (type.includes('white')) {
-              return {
-                bg: 'bg-[#CCFF00]',
-                accent: 'bg-white',
+                bg: 'bg-[#FFF5F7]',
                 accentText: 'text-black',
                 text: 'text-black',
-                border: 'border-black',
-                glow: 'glow-green'
-              };
-            } else if (type.includes('rosé') || type.includes('rose')) {
-              return {
-                bg: 'bg-[#FFE5EC]',
-                accent: 'bg-[#FF2E63]',
-                accentText: 'text-white',
-                text: 'text-black',
-                border: 'border-[#FF006E]',
-                glow: 'glow-pink'
+                border: 'border-[#FF6B9D]',
+                glow: 'glow-coral',
+                stripColor: 'var(--coral)',
+                badgeHover: 'hover:bg-[#FF6B9D] hover:text-white'
               };
             }
             
+            // Fortified → Pink bar (like red)
+            if (type.includes('fortified')) {
+              return {
+                bg: 'bg-[#FAFAF8]',
+                accentText: 'text-black',
+                text: 'text-black',
+                border: 'border-black',
+                glow: 'glow-pink',
+                stripColor: 'var(--neon-pink)',
+                badgeHover: 'hover:bg-[#CCFF00] hover:text-black'
+              };
+            }
+            
+            // Dessert or Sparkling → Yellow bar (like white)
+            if (type.includes('dessert') || type.includes('sparkling')) {
+              return {
+                bg: 'bg-[#FAFAF8]',
+                accentText: 'text-black',
+                text: 'text-black',
+                border: 'border-black',
+                glow: 'glow-green',
+                stripColor: 'var(--acid-green)',
+                badgeHover: 'hover:bg-[#FF006E] hover:text-white'
+              };
+            }
+            
+            // Red wine → Pink bar
+            if (type.includes('red')) {
+              return {
+                bg: 'bg-[#FAFAF8]',
+                accentText: 'text-black',
+                text: 'text-black',
+                border: 'border-black',
+                glow: 'glow-pink',
+                stripColor: 'var(--neon-pink)',
+                badgeHover: 'hover:bg-[#CCFF00] hover:text-black'
+              };
+            }
+            
+            // White wine (default) → Yellow bar
             return {
-              bg: 'bg-[#F5E6D3]',
-              accent: 'bg-black',
-              accentText: 'text-white',
+              bg: 'bg-[#FAFAF8]',
+              accentText: 'text-black',
               text: 'text-black',
               border: 'border-black',
-              glow: ''
+              glow: 'glow-green',
+              stripColor: 'var(--acid-green)',
+              badgeHover: 'hover:bg-[#FF006E] hover:text-white'
             };
           };
 
@@ -958,7 +1205,7 @@
           }, [wines]);
 
           const filteredWines = useMemo(() => {
-            return wines.filter(wine => {
+            const filtered = wines.filter(wine => {
               const searchLower = searchTerm.toLowerCase();
               const matchesSearch = !searchTerm || 
                 wine.Producer?.toLowerCase().includes(searchLower) ||
@@ -968,14 +1215,40 @@
               const matchesType = !filters.wineType.length || filters.wineType.includes(wine['Wine type']);
               
               // Check if any selected grape appears in this wine's cépage
-              const matchesCepage = !filters.cepage.length || 
-                filters.cepage.some(selectedGrape => {
-                  const wineGrapes = wine['Cépage']
-                    ?.split(/[\/&+,]|(?:\s+and\s+)/i)
-                    .map(g => g.trim())
-                    .filter(g => g.length > 0) || [];
-                  return wineGrapes.includes(selectedGrape);
-                });
+              // CRITICAL: If grape filters are active, wines MUST have Cépage data
+              const matchesCepage = (() => {
+                // No grape filters active - all wines pass
+                if (!filters.cepage.length) {
+                  return true;
+                }
+                
+                // Grape filters are active - wine MUST have Cépage data
+                const cepage = wine['Cépage'];
+                if (!cepage || cepage.trim() === '') {
+                  console.warn(`Wine excluded (empty Cépage):`, wine.Producer, wine['Wine name'], wine.Vintage);
+                  return false; // Exclude wines with no grape data when filtering by grape
+                }
+                
+                // Parse wine's grapes
+                const wineGrapes = cepage
+                  .split(/[\/&+,]|(?:\s+and\s+)/i)
+                  .map(g => g.trim())
+                  .filter(g => g.length > 0)
+                  .map(g => g.toLowerCase());
+                
+                // Check if any selected grape matches
+                const matches = filters.cepage.some(selectedGrape => 
+                  wineGrapes.includes(selectedGrape.toLowerCase())
+                );
+                
+                if (!matches) {
+                  console.log(`Wine excluded (no grape match):`, wine.Producer, wine['Wine name'], 
+                             'Has:', wineGrapes.join(', '), 
+                             'Looking for:', filters.cepage.join(', '));
+                }
+                
+                return matches;
+              })();
               
               const matchesAppellation = !filters.appellation.length || filters.appellation.includes(wine.Appellation);
               const matchesRegion = !filters.region.length || filters.region.includes(wine.Region);
@@ -984,8 +1257,36 @@
               const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
               const matchesMaturity = !filters.maturity.length || filters.maturity.includes(maturity);
 
+              // Price range filtering
+              const matchesPriceRange = (() => {
+                if (!filters.priceRange.length) return true;
+                
+                const price = parseFloat(wine['Bottle Price']);
+                if (isNaN(price)) return false; // Exclude wines without valid price
+                
+                return filters.priceRange.some(range => {
+                  if (range === 'Under $30') return price < 30;
+                  if (range === '$30-$60') return price >= 30 && price < 60;
+                  if (range === '$60-$100') return price >= 60 && price < 100;
+                  if (range === '$100+') return price >= 100;
+                  return false;
+                });
+              })();
+
               return matchesSearch && matchesType && matchesCepage && 
-                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity;
+                     matchesAppellation && matchesRegion && matchesCountry && matchesMaturity && matchesPriceRange;
+            });
+            
+            // Deduplicate wines based on unique ID (includes Cépage for better uniqueness)
+            const seen = new Set();
+            return filtered.filter(wine => {
+              const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine['Cépage']}|${wine.Appellation || ''}|${wine.Region || ''}`;
+              if (seen.has(wineId)) {
+                console.warn('Duplicate wine detected:', wineId);
+                return false;
+              }
+              seen.add(wineId);
+              return true;
             });
           }, [wines, searchTerm, filters]);
 
@@ -997,6 +1298,50 @@
             }, 0);
           }, [filteredWines]);
 
+          // HERO CARD SELECTION - Max 2 hero cards
+          const getHeroCards = React.useMemo(() => {
+            // Score-based hero selection for curator vibe
+            const scored = filteredWines.map(wine => {
+              const rating = parseFloat(wine['Vivino Rating']) || 0;
+              const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
+              const quantity = parseInt(wine['Quantity']) || 1;
+              const price = parseFloat(wine['Bottle Price']) || 0;
+              
+              let score = 0;
+              
+              // Rating weight (highest priority)
+              if (rating >= 4.5) score += 100 + (rating * 10);
+              else if (rating >= 4.0) score += 50 + (rating * 5);
+              
+              // Maturity weight
+              if (maturity === '🍷 Drink Now') score += 80;
+              else if (maturity === '🟢 Hold') score += 20;
+              
+              // Rarity weight
+              if (quantity === 1) score += 60;
+              else if (quantity <= 3) score += 30;
+              
+              // Luxury bias - weight toward higher-priced wines
+              if (price >= 200) score += 50;
+              else if (price >= 100) score += 30;
+              else if (price >= 60) score += 15;
+              
+              return { wine, score };
+            });
+            
+            // Sort by score (deterministic), take top 2
+            const topWines = scored
+              .filter(item => item.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 2)
+              .map(item => {
+                const w = item.wine;
+                return `${w.Producer}|${w['Wine name']}|${w.Vintage}|${w['Cépage']}|${w.Appellation || ''}|${w.Region || ''}`.replace(/\s+/g, '-');
+              });
+            
+            return topWines;
+          }, [filteredWines]);
+          
           const toggleFilter = (category, value) => {
             setFilters(prev => {
               const current = prev[category];
@@ -1022,6 +1367,7 @@
               region: [],
               country: [],
               maturity: [],
+              priceRange: [],
               vivinoRating: false
             });
             setSearchTerm('');
@@ -1068,14 +1414,26 @@
           return (
             <div className="min-h-screen bg-[#F5E6D3]">
               {/* BRUTAL HEADER */}
-              <header className="border-b-8 border-black bg-white sticky top-0 z-40">
+              <header className="border-b-8 border-black bg-white sticky top-0 z-40 relative">
+                {/* EXHIBITION PLACARD - Hidden on mobile */}
+                <div className="hidden sm:block 
+                                absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2
+                                bg-[#F5F0E8] border-2 border-[#0A0A0A]
+                                px-4 py-2 rotate-[-1deg]
+                                shadow-[3px_3px_0_rgba(0,0,0,0.1)]
+                                z-10">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.035em]">
+                    Est. 2026 · Underground Cellar
+                  </p>
+                </div>
+                
                 <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
                   {/* Top row: Logo + Counters */}
                   <div className="flex items-center justify-between gap-4 mb-4 lg:mb-0">
                     <div className="flex items-center gap-3 lg:gap-4">
                       <button
                         onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="lg:hidden p-2 bg-black hover:bg-[#FF006E] transition-colors"
+                        className="lg:hidden p-2 bg-[#0A0A0A] hover:bg-[#FF006E] transition-colors"
                         style={{color: '#CCFF00'}}
                       >
                         <FilterIcon className="w-5 h-5" />
@@ -1084,7 +1442,7 @@
                         <div style={{color: '#FF006E'}}>
                           <WineIcon className="w-8 h-8 lg:w-12 lg:h-12" />
                         </div>
-                        <h1 className="text-3xl sm:text-4xl lg:text-6xl font-display tracking-tight" style={{color: '#FF006E'}}>
+                        <h1 className="text-3xl sm:text-4xl lg:text-6xl font-display tracking-tight" style={{color: '#0A0A0A'}}>
                           RAVE CAVE
                         </h1>
                       </div>
@@ -1092,12 +1450,12 @@
 
                     <div className="font-display text-xl lg:text-3xl tracking-tight flex flex-col items-end gap-0.5 lg:gap-1">
                       <div>
-                        <span style={{color: '#CCFF00'}}>{totalBottles}</span>
-                        <span className="text-black text-sm lg:text-3xl"> BTL</span>
+                        <span style={{color: '#FF006E'}}>{totalBottles}</span>
+                        <span className="text-[#0A0A0A] text-sm lg:text-3xl"> BTL</span>
                       </div>
                       <div className="text-sm lg:text-xl">
-                        <span style={{color: '#FF006E'}}>{filteredWines.length}</span>
-                        <span className="text-black"> WINES</span>
+                        <span style={{color: '#CCFF00'}}>{filteredWines.length}</span>
+                        <span className="text-[#0A0A0A]"> WINES</span>
                       </div>
                     </div>
                   </div>
@@ -1105,39 +1463,48 @@
               </header>
 
               <div className="flex max-w-[2000px] mx-auto">
-                {/* SIDEBAR */}
+                {/* SIDEBAR - Gallery Curatorial Style */}
                 <aside className={`
                   ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                  fixed lg:sticky top-0 lg:top-[90px] left-0 h-screen lg:h-[calc(100vh-90px)] w-full lg:w-64 
-                  bg-black border-r-6 border-black overflow-y-auto z-[100] lg:z-30
+                  fixed top-0 lg:top-[110px] left-0 h-screen lg:h-[calc(100vh-110px)] w-full lg:w-64 
+                  bg-[#FAFAF8] border-r-2 border-[#EBEBDF] z-[100] lg:z-30
                   transition-transform duration-300 ease-in-out
+                  flex flex-col
                 `}>
-                  <div className="p-5 lg:p-4 space-y-6 lg:space-y-5 pt-8 lg:pt-5">
-                    <div className="flex items-center justify-between pb-3 border-b-3 border-[#CCFF00]">
-                      <h2 className="text-2xl font-display tracking-tight" style={{color: '#CCFF00'}}>
-                        FILTERS
-                      </h2>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={clearAllFilters}
-                          className="text-[10px] font-mono uppercase tracking-wider hover:text-[#FF006E] transition-colors"
-                          style={{color: '#CCFF00'}}
-                        >
-                          CLEAR
-                        </button>
-                        <button
-                          onClick={() => setSidebarOpen(false)}
-                          className="lg:hidden p-2 hover:bg-[#FF006E] transition-colors"
-                          style={{color: '#CCFF00'}}
-                        >
-                          <XIcon className="w-5 h-5" />
-                        </button>
+                  {/* FIXED HEADER - doesn't scroll */}
+                  <div className="p-5 lg:p-4 space-y-4 flex-shrink-0">
+                    {/* Header with neon underline */}
+                    <div className="pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <h2 className="font-grotesk font-bold text-sm uppercase tracking-wider text-[#0A0A0A]">
+                          Filters
+                        </h2>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={clearAllFilters}
+                            className="text-[10px] font-mono uppercase tracking-[0.035em] 
+                                       text-[#878787] hover:text-[#FF006E] transition-colors
+                                       relative group"
+                          >
+                            Clear All
+                            <span className="absolute bottom-0 left-0 w-0 h-[1px] 
+                                           bg-[#FF006E] group-hover:w-full 
+                                           transition-all duration-300" />
+                          </button>
+                          <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="lg:hidden p-2 hover:bg-[#FF006E] transition-colors text-[#0A0A0A]"
+                          >
+                            <XIcon className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
+                      <div className="h-[2px] w-12 bg-[#FF006E]" />
                     </div>
 
                     {/* SEARCH */}
                     <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{color: '#CCFF00'}}>
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787]">
                         <SearchIcon className="w-5 h-5" />
                       </div>
                       <input
@@ -1145,12 +1512,16 @@
                         placeholder="SEARCH"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-11 pr-3 py-3 bg-[#1a1a1a] border-2 border-[#333] font-mono text-sm uppercase
-                                 placeholder-[#666] focus:outline-none focus:border-[#FF006E] transition-all"
-                        style={{color: '#CCFF00'}}
+                        className="w-full pl-11 pr-3 py-2.5 bg-white border-2 border-[#EBEBDF] 
+                                   font-grotesk text-sm
+                                   placeholder-[#878787] text-[#0A0A0A]
+                                   focus:outline-none focus:border-[#FF006E] transition-colors"
                       />
                     </div>
-
+                  </div>
+                  
+                  {/* SCROLLABLE FILTER SECTIONS */}
+                  <div className="flex-1 overflow-y-auto px-5 lg:px-4 pb-5 space-y-6 lg:space-y-5">
                     <BrutalFilterSection
                       title="GRAPE"
                       options={filterOptions.cepage || []}
@@ -1173,6 +1544,13 @@
                     />
 
                     <BrutalFilterSection
+                      title="PRICE RANGE"
+                      options={['Under $30', '$30-$60', '$60-$100', '$100+']}
+                      selected={filters.priceRange}
+                      onToggle={(val) => toggleFilter('priceRange', val)}
+                    />
+
+                    <BrutalFilterSection
                       title="COUNTRY"
                       options={filterOptions.country || []}
                       selected={filters.country}
@@ -1190,7 +1568,7 @@
 
 
                 {/* MAIN GRID */}
-                <main className="flex-1 p-3 sm:p-4 lg:p-12">
+                <main className="flex-1 p-3 sm:p-4 lg:p-12 lg:ml-64">
                   {filteredWines.length === 0 ? (
                     <div className="text-center py-20 border-8 border-black bg-white">
                       <div className="w-24 h-24 mx-auto mb-6" style={{color: '#FF006E'}}>
@@ -1206,15 +1584,22 @@
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-8">
-                      {filteredWines.map((wine, index) => (
-                        <WineCard 
-                          key={index} 
-                          wine={wine}
-                          onClick={() => setSelectedWine(wine)}
-                          getMaturityStatus={getMaturityStatus}
-                          getWineColors={getWineColors}
-                        />
-                      ))}
+                      {filteredWines.map((wine, index) => {
+                        // Robust wine ID includes Cépage to avoid collisions
+                        const wineId = `${wine.Producer}|${wine['Wine name']}|${wine.Vintage}|${wine['Cépage']}|${wine.Appellation || ''}|${wine.Region || ''}`.replace(/\s+/g, '-');
+                        const isHero = getHeroCards.includes(wineId);
+                        
+                        return (
+                          <WineCard 
+                            key={wineId} 
+                            wine={wine}
+                            isHero={isHero}
+                            onClick={() => setSelectedWine(wine)}
+                            getMaturityStatus={getMaturityStatus}
+                            getWineColors={getWineColors}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </main>
@@ -1225,6 +1610,7 @@
                   wine={selectedWine} 
                   wines={wines}
                   setWines={setWines}
+                  setSelectedWine={setSelectedWine}
                   onClose={() => setSelectedWine(null)}
                   getMaturityStatus={getMaturityStatus}
                   getWineColors={getWineColors}
@@ -1241,31 +1627,28 @@
           const [expanded, setExpanded] = useState(false);
 
           return (
-            <div className="space-y-3 border-t border-[#FF006E] pt-4">
+            <div className="space-y-3">
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="flex items-center justify-between w-full group"
+                className="flex items-center justify-between w-full group hover:translate-x-1 transition-transform"
               >
-                <h3 className="text-sm font-mono uppercase tracking-widest font-bold group-hover:text-[#CCFF00] transition-colors"
-                    style={{color: '#FF006E'}}>
+                <h3 className="font-mono text-xs uppercase tracking-[0.035em] text-[#0A0A0A]">
                   {title}
                 </h3>
-                <ChevronIcon className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} 
-                             style={{color: '#CCFF00'}} />
+                <ChevronIcon className={`w-4 h-4 transition-transform text-[#878787] ${expanded ? 'rotate-180' : ''}`} />
               </button>
               
               {expanded && (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-48 overflow-y-auto pl-6 filter-scrollbar">
                   {options.map(option => (
-                    <label key={option} className="flex items-center gap-2 cursor-pointer group">
+                    <label key={option} className="flex items-center gap-2 cursor-pointer group py-1">
                       <input
                         type="checkbox"
                         checked={selected.includes(option)}
                         onChange={() => onToggle(option)}
-                        style={{width: '20px', height: '20px', border: '2px solid black'}}
+                        className="w-4 h-4 border-2 border-[#0A0A0A] bg-white cursor-pointer"
                       />
-                      <span className="font-mono text-sm group-hover:text-[#CCFF00] transition-colors"
-                            style={{color: 'white'}}>
+                      <span className="font-grotesk text-sm text-[#0A0A0A] group-hover:translate-x-0.5 transition-transform">
                         {option}
                       </span>
                     </label>
@@ -1276,11 +1659,42 @@
           );
         };
 
-        const WineCard = ({ wine, onClick, getMaturityStatus, getWineColors }) => {
+        // Utility: Convert Google Drive URLs to direct image URLs
+        const getDirectImageUrl = (url) => {
+          if (!url) return url;
+          
+          // Handle Google Drive URLs
+          if (url.includes('drive.google.com')) {
+            // Extract file ID from various Google Drive URL formats
+            let fileId = null;
+            
+            // Format 1: /file/d/FILE_ID/view
+            const viewMatch = url.match(/\/file\/d\/([^\/]+)/);
+            if (viewMatch) {
+              fileId = viewMatch[1];
+            }
+            
+            // Format 2: /uc?id=FILE_ID or ?id=FILE_ID
+            const idMatch = url.match(/[?&]id=([^&]+)/);
+            if (idMatch) {
+              fileId = idMatch[1];
+            }
+            
+            // If we found a file ID, convert to direct image URL
+            if (fileId) {
+              return `https://drive.google.com/uc?export=view&id=${fileId}`;
+            }
+          }
+          
+          // Return original URL if not Google Drive or no ID found
+          return url;
+        };
+
+        const WineCard = ({ wine, onClick, getMaturityStatus, getWineColors, isHero = false }) => {
           const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
           const colors = getWineColors(wine['Wine type']);
           const vivinoRating = parseFloat(wine['Vivino Rating']);
-          const imageUrl = wine['Label image'];
+          const imageUrl = getDirectImageUrl(wine['Label image']);
           const bottleCount = wine['Quantity'] || '1';
 
           // Strip emoji from maturity label
@@ -1301,101 +1715,147 @@
 
           // Get icon component based on maturity
           const getMaturityIcon = () => {
-            if (maturity === '🍷 Drink Now') return <WineIcon className="w-4 h-4" />;
-            if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-4 h-4" />;
-            return <ClockIcon className="w-4 h-4" />; // Hold
+            if (maturity === '🍷 Drink Now') return <WineIcon className="w-3.5 h-3.5" />;
+            if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-3.5 h-3.5" />;
+            return <ClockIcon className="w-3.5 h-3.5" />; // Hold
           };
 
-          // Icon color based on wine type
+          // Random rotations for each badge type (print stamp effect)
+          const bottleRotation = React.useMemo(() => Math.random() * 1.5 - 1, []);
+          const ratingRotation = React.useMemo(() => Math.random() * 1.5 - 1, []);
+          const maturityRotation = React.useMemo(() => Math.random() * 1.5 - 1, []);
+          const stampRotation = React.useMemo(() => Math.random() * 6 - 3, []);
+
+          // Icon color based on wine type (for placeholder)
           const getIconColor = () => {
             const type = wine['Wine type']?.toLowerCase() || '';
             if (type.includes('white')) return '#CCFF00';
-            if (type.includes('red')) return '#FF2E63';
-            return '#000000';
+            if (type.includes('red')) return '#FF006E';
+            return '#0A0A0A';
           };
 
           return (
             <div 
               onClick={onClick}
-              className={`cursor-pointer card-hover border-8 ${colors.border} ${colors.glow} overflow-hidden flex flex-col`}
+              className={`cursor-pointer card-hover border-0 ${isHero ? colors.glow : ''} overflow-hidden flex flex-col relative bg-white`}
             >
-              {/* IMAGE BLOCK - SQUARE CROP */}
-              <div className={`relative h-48 sm:h-56 lg:h-64 overflow-hidden ${colors.accent}`}>
-                {imageUrl ? (
-                  <img 
-                    src={imageUrl.includes('drive.google.com') 
-                      ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
-                      : imageUrl
-                    } 
-                    alt={wine['Cépage']}
-                    className="w-full h-full object-cover"
-                    style={{clipPath: 'inset(0)'}}
-                    onError={(e) => {
-                      // Only for Drive images: try alternative format
-                      if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
-                        e.target.dataset.fallbackAttempted = 'true';
-                        const fileIdMatch = imageUrl.match(/id=([^&]+)/);
-                        if (fileIdMatch) {
-                          e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+              {/* NEON TOP STRIP - Consistent 8px for all, wine-type color */}
+              <div 
+                className="h-[8px]"
+                style={{backgroundColor: colors.stripColor}}
+              />
+              
+              {/* SOMMELIER'S FAVE LABEL - Only distinction for hero */}
+              {isHero && (
+                <div 
+                  className="absolute top-3 right-3 z-10
+                             bg-[#0A0A0A] text-white
+                             px-4 py-2 text-xs font-mono font-bold uppercase
+                             border-2 border-[#0A0A0A]"
+                  style={{
+                    transform: `rotate(${stampRotation}deg)`,
+                    boxShadow: '2px 2px 0 rgba(0,0,0,0.3)'
+                  }}
+                >
+                  SOMMELIER'S FAVE
+                </div>
+              )}
+              
+              {/* IMAGE - No frame/border */}
+              <div className="aspect-square bg-white overflow-hidden">
+                  {imageUrl ? (
+                    <img 
+                      src={imageUrl} 
+                      alt={wine['Cépage']}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback: Try thumbnail format if direct view fails
+                        if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
+                          e.target.dataset.fallbackAttempted = 'true';
+                          const fileIdMatch = imageUrl.match(/id=([^&]+)/);
+                          if (fileIdMatch) {
+                            e.target.src = `https://drive.google.com/thumbnail?id=${fileIdMatch[1]}&sz=w500`;
+                          }
                         }
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-white flex items-center justify-center">
-                    <WineIcon className="w-20 h-20" style={{color: getIconColor()}} />
-                  </div>
-                )}
-                
-                {/* DIAGONAL ACCENT BAR WITH BOTTLE COUNT */}
-                <div className={`absolute top-0 right-0 ${colors.accent} px-6 py-2 clip-diagonal`}
-                     style={{clipPath: 'polygon(20% 0, 100% 0, 100% 100%, 0 100%)'}}>
-                  <span className={`font-display text-2xl font-bold ${colors.accentText}`}>
-                    {bottleCount}
-                  </span>
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#FAFAF8] flex items-center justify-center">
+                      <WineIcon className="w-20 h-20" style={{color: getIconColor()}} />
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              {/* INFO BLOCK - flex-grow fills remaining height */}
-              <div className={`${colors.bg} p-4 lg:p-6 space-y-2 lg:space-y-3 flex-grow`}>
-                {/* GRAPE - HUGE */}
-                <div className={`font-display text-5xl sm:text-6xl lg:text-7xl leading-none ${colors.text} tracking-tighter uppercase`}>
+              {/* TYPOGRAPHIC STACK - Same for all cards */}
+              <div className={`${colors.bg} p-4 space-y-2 flex-grow`}>
+                <h3 className="font-display text-3xl leading-none text-[#0A0A0A] uppercase tracking-tighter">
                   {getGrapeDisplay()}
-                </div>
-
-                {/* VINTAGE - SMALLER */}
-                <h3 className={`font-display text-3xl sm:text-3xl lg:text-4xl leading-tight ${colors.text} tracking-tight`}>
-                  {wine.Vintage}
                 </h3>
-
-                {/* PRODUCER - LARGER */}
-                <p className={`font-mono text-sm lg:text-lg uppercase tracking-wide ${colors.text} opacity-70`}>
+                <p className="font-display text-2xl leading-none text-[#0A0A0A]">
+                  {wine.Vintage}
+                </p>
+                
+                <p className="font-grotesk text-sm opacity-50 uppercase tracking-wide">
                   {wine.Producer}
                 </p>
 
-                {/* STICKER BADGES */}
+                {/* BADGE CLUSTER - Gallery stamps */}
                 <div className="flex flex-wrap gap-2 pt-2">
+                  {/* Bottle count badge */}
+                  <div 
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 
+                               border-2 border-[#0A0A0A] bg-white
+                               relative transition-all duration-200"
+                    style={{transform: `rotate(${bottleRotation}deg)`}}
+                  >
+                    <div className="absolute inset-0 border-2 border-[#0A0A0A] 
+                                    translate-x-[1px] translate-y-[1px] -z-10 opacity-20" />
+                    <span className="font-mono text-xs font-semibold uppercase tracking-[0.035em]">
+                      {bottleCount} BTL
+                    </span>
+                  </div>
+                  
+                  {/* Rating badge */}
                   {vivinoRating && !isNaN(vivinoRating) && vivinoRating > 0 && (
-                    <div className="sticker-badge inline-flex items-center gap-1 px-2 py-1.5 bg-black border-2 border-black">
-                      <StarIcon style={{color: '#CCFF00'}} />
-                      <span className="font-mono text-xs font-bold" style={{color: '#CCFF00'}}>
+                    <div 
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 
+                                 border-2 border-[#0A0A0A] bg-white
+                                 relative transition-all duration-200
+                                 ${colors.badgeHover}`}
+                      style={{transform: `rotate(${ratingRotation}deg)`}}
+                    >
+                      <div className="absolute inset-0 border-2 border-[#0A0A0A] 
+                                      translate-x-[1px] translate-y-[1px] -z-10 opacity-20" />
+                      <StarIcon className="w-3.5 h-3.5" />
+                      <span className="font-mono text-xs font-semibold uppercase tracking-[0.035em]">
                         {vivinoRating.toFixed(1)}
                       </span>
                     </div>
                   )}
                   
-                  <div className={`sticker-badge inline-flex items-center gap-1 px-3 py-1.5 border-2 ${
-                    maturity === '⚠️ Past Peak' ? 'border-[#FF006E] bg-black' : 'border-black'
-                  }`}
-                       style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : undefined}}>
-                    <span className={maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'}>
-                      {getMaturityIcon()}
-                    </span>
-                    <span className={`font-mono text-xs font-bold ${
-                      maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'
-                    }`}>
+                  {/* Maturity badge */}
+                  <div 
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 
+                               border-2 relative transition-all duration-200
+                               ${maturity === '⚠️ Past Peak' 
+                                 ? 'border-[#FF006E] bg-[#0A0A0A] text-[#FF006E]' 
+                                 : maturity === '🍷 Drink Now'
+                                 ? 'border-[#0A0A0A] bg-[#CCFF00] text-[#0A0A0A]'
+                                 : 'border-[#0A0A0A] bg-white text-[#2A2A2A]'
+                               }`}
+                    style={{transform: `rotate(${maturityRotation}deg)`}}
+                  >
+                    <div className={`absolute inset-0 border-2 
+                                    ${maturity === '⚠️ Past Peak' ? 'border-[#FF006E]' : 'border-[#0A0A0A]'}
+                                    translate-x-[1px] translate-y-[1px] -z-10 opacity-20`} />
+                    {getMaturityIcon()}
+                    <span className="font-mono text-xs font-semibold uppercase tracking-[0.035em]">
                       {maturityLabel}
                     </span>
+                    {/* Hold underline */}
+                    {maturity === '🟢 Hold' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#CCFF00]" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -1403,11 +1863,11 @@
           );
         };
 
-        const WineModal = ({ wine, wines, setWines, onClose, getMaturityStatus, getWineColors }) => {
+        const WineModal = ({ wine, wines, setWines, setSelectedWine, onClose, getMaturityStatus, getWineColors }) => {
           const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
           const colors = getWineColors(wine['Wine type']);
           const vivinoRating = parseFloat(wine['Vivino Rating']);
-          const imageUrl = wine['Label image'];
+          const imageUrl = getDirectImageUrl(wine['Label image']);
 
           // Strip emoji from maturity label
           const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
@@ -1417,6 +1877,47 @@
             if (maturity === '🍷 Drink Now') return <WineIcon className="w-6 h-6" />;
             if (maturity === '⚠️ Past Peak') return <AlertIcon className="w-6 h-6" />;
             return <ClockIcon className="w-6 h-6" />; // Hold
+          };
+
+          // Format price for display
+          const formatPrice = (price) => {
+            if (!price || price === '') return '—';
+            const numPrice = parseFloat(price);
+            if (isNaN(numPrice)) return price;
+            return `$${numPrice.toFixed(numPrice % 1 === 0 ? 0 : 2)}`;
+          };
+
+          // Get format label for special sizes
+          const getFormatLabel = (format) => {
+            if (!format || format === '') return null;
+            
+            const f = format.toLowerCase().trim();
+            
+            // Convert to milliliters for consistent comparison
+            let ml = 0;
+            
+            if (f.includes('ml')) {
+              ml = parseFloat(f);
+            } else if (f.includes('l')) {
+              ml = parseFloat(f) * 1000;
+            } else {
+              return null; // Unknown format
+            }
+            
+            // Return badge based on size (detailed names)
+            if (ml < 250) return 'SPLIT';              // 187ml, 200ml
+            if (ml < 500) return 'HALF BOTTLE';        // 375ml
+            if (ml < 650) return 'HALF LITER';         // 500ml
+            if (ml < 900) return null;                 // 750ml - STANDARD, no badge
+            if (ml < 1200) return 'LITER';             // 1L
+            if (ml < 2000) return 'MAGNUM';            // 1.5L
+            if (ml < 3500) return 'JEROBOAM';          // 3L (Double Magnum)
+            if (ml < 5000) return 'REHOBOAM';          // 4.5L
+            if (ml < 7500) return 'IMPERIAL';          // 6L (Methuselah)
+            if (ml < 10000) return 'SALMANAZAR';       // 9L
+            if (ml < 13000) return 'BALTHAZAR';        // 12L
+            if (ml < 16000) return 'NEBUCHADNEZZAR';   // 15L
+            return 'LARGE FORMAT';                     // 18L+
           };
 
           // Track which field is being edited
@@ -1457,10 +1958,17 @@
                 'Country': 8, 'Quantity': 9, 'Drink From': 10, 'Drink Until': 11,
                 'Maturity': 12, 'Tasting Notes': 13, 'My Rating': 14,
                 'Vivino Rating': 15, 'Personal Note': 16, 'Link to wine': 17,
-                'Label image': 18
+                'Label image': 18, 'Bottle Price': 19, 'Format': 20
               };
               
               const columnIndex = columnMap[key];
+              
+              // Check if field is editable
+              if (columnIndex === undefined) {
+                console.error(`Field "${key}" is not mapped to a column index`);
+                alert(`Cannot edit field "${key}" - field not found in column mapping`);
+                return;
+              }
               
               // Update via Apps Script using GET to avoid CORS
               const updateUrl = `${SHEET_API_URL}?action=updateCell&row=${rowNumber}&column=${columnIndex}&value=${encodeURIComponent(editValue)}`;
@@ -1477,10 +1985,7 @@
                 throw new Error(result.error || 'Update failed');
               }
 
-              // Update local data
-              wine[key] = editValue;
-              
-              // Update the wines array
+              // Update the wines array immutably
               const updatedWines = wines.map(w => {
                 if (w.Producer === wine.Producer && 
                     w.Vintage === wine.Vintage && 
@@ -1490,6 +1995,9 @@
                 return w;
               });
               setWines(updatedWines);
+              
+              // Update selected wine to reflect the change
+              setSelectedWine(prev => ({...prev, [key]: editValue}));
               setEditingField(null);
               
             } catch (error) {
@@ -1520,18 +2028,16 @@
                   {imageUrl ? (
                     <div className="relative h-96 overflow-hidden bg-black">
                       <img 
-                        src={imageUrl.includes('drive.google.com') 
-                          ? imageUrl.replace('/uc?id=', '/thumbnail?id=') + (imageUrl.includes('?') ? '&sz=w500' : '?sz=w500')
-                          : imageUrl
-                        } 
+                        src={imageUrl} 
                         alt={wine['Wine name']}
                         className="w-full h-full object-contain"
                         onError={(e) => {
+                          // Fallback: Try thumbnail format if direct view fails
                           if (imageUrl.includes('drive.google.com') && !e.target.dataset.fallbackAttempted) {
                             e.target.dataset.fallbackAttempted = 'true';
                             const fileIdMatch = imageUrl.match(/id=([^&]+)/);
                             if (fileIdMatch) {
-                              e.target.src = `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
+                              e.target.src = `https://drive.google.com/thumbnail?id=${fileIdMatch[1]}&sz=w500`;
                             }
                           }
                         }}
@@ -1571,7 +2077,7 @@
                       {wine['Wine name']}
                     </h2>
                     <p className={`font-display text-6xl sm:text-7xl lg:text-9xl leading-none tracking-tighter`}
-                       style={{color: colors.bg === 'bg-white' ? '#FF006E' : '#CCFF00'}}>
+                       style={{color: colors.stripColor}}>
                       {wine.Vintage}
                     </p>
                   </div>
@@ -1587,18 +2093,23 @@
                       </div>
                     )}
                     
-                    <div className={`sticker-badge inline-flex items-center gap-2 px-5 py-3 border-4 ${
-                      maturity === '⚠️ Past Peak' ? 'border-[#FF006E] bg-black' : 'border-black'
-                    }`}
-                         style={{backgroundColor: maturity === '🍷 Drink Now' ? '#CCFF00' : maturity === '🟢 Hold' ? '#00D9FF' : undefined}}>
-                      <span className={maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'}>
+                    <div className={`sticker-badge inline-flex items-center gap-2 px-5 py-3 border-4 relative
+                      ${maturity === '⚠️ Past Peak' 
+                        ? 'border-[#FF006E] bg-[#0A0A0A] text-[#FF006E]' 
+                        : maturity === '🍷 Drink Now'
+                        ? 'border-[#0A0A0A] bg-[#CCFF00] text-[#0A0A0A]'
+                        : 'border-[#0A0A0A] bg-white text-[#2A2A2A]'
+                      }`}>
+                      <span>
                         {getMaturityIcon()}
                       </span>
-                      <span className={`font-display text-2xl font-bold ${
-                        maturity === '⚠️ Past Peak' ? 'text-[#FF006E]' : 'text-black'
-                      }`}>
+                      <span className="font-display text-2xl font-bold">
                         {maturityLabel}
                       </span>
+                      {/* Hold green underline */}
+                      {maturity === '🟢 Hold' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#CCFF00]" />
+                      )}
                     </div>
 
                     {wine['Wine type'] && (
@@ -1644,7 +2155,20 @@
                               onClick={() => handleFieldClick(key, value)}
                               className="cursor-pointer hover:bg-yellow-100 block p-1 -m-1"
                             >
-                              {value || '(empty)'}
+                              {key === 'Bottle Price' ? (
+                                <span className="font-bold text-lg">{formatPrice(value)}</span>
+                              ) : key === 'Format' ? (
+                                <div className="flex items-center gap-2">
+                                  <span>{value || '750ml'}</span>
+                                  {getFormatLabel(value) && (
+                                    <span className="inline-block px-2 py-0.5 bg-[#FF006E] text-white text-[10px] font-bold uppercase tracking-wider">
+                                      {getFormatLabel(value)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                value || '(empty)'
+                              )}
                             </span>
                           )}
                         </dd>
