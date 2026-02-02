@@ -802,13 +802,9 @@
           const sendMessage = async () => {
             if ((!input.trim() && !selectedImage) || loading) return;
 
-            // WEEK 1: Client-side timing starts
-            const clientTimings = {
-              start: Date.now(),
-              apiCall: 0,
-              uiRender: 0,
-              total: 0
-            };
+            // WEEK 1: Start timing
+            const startTime = Date.now();
+            console.log('⏱️ Starting request at:', new Date().toLocaleTimeString());
 
             const userMessage = input.trim() || '📸 [Photo of wine label]';
             setInput('');
@@ -872,7 +868,7 @@
             try {
               console.log('Sending to Gemini with history:', newGeminiHistory);
               
-              const apiCallStart = Date.now();
+              const apiStartTime = Date.now();
               const response = await fetch(GEMINI_ENDPOINT, {
                 method: 'POST',
                 mode: 'cors',
@@ -883,7 +879,8 @@
                   history: newGeminiHistory
                 })
               });
-              clientTimings.apiCall = Date.now() - apiCallStart;
+              const apiDuration = Date.now() - apiStartTime;
+              console.log(`⏱️ API call took: ${apiDuration}ms (${(apiDuration/1000).toFixed(2)}s)`);
 
               console.log('Response status:', response.status);
               
@@ -917,19 +914,16 @@
               console.log('Bot reply:', botReply);
               
               // WEEK 1: Replace thinking message with actual response
-              const uiRenderStart = Date.now();
               setMessages(prev => prev.map(msg => 
                 msg.id === thinkingId 
                   ? { ...msg, text: botReply, isThinking: false }
                   : msg
               ));
-              clientTimings.uiRender = Date.now() - uiRenderStart;
-              clientTimings.total = Date.now() - clientTimings.start;
               
-              // WEEK 1: Log client-side timing
-              console.log(`⏱️ CLIENT TIMING (Total: ${clientTimings.total}ms):
-  🌐 API Call: ${clientTimings.apiCall}ms
-  🎨 UI Render: ${clientTimings.uiRender}ms`);
+              // WEEK 1: Log total timing
+              const totalDuration = Date.now() - startTime;
+              console.log(`⏱️ TOTAL TIME: ${totalDuration}ms (${(totalDuration/1000).toFixed(2)}s)`);
+              console.log(`   └─ Perceived by user: ${totalDuration < 3000 ? '✅ FAST' : totalDuration < 5000 ? '⚠️ ACCEPTABLE' : '🚨 SLOW'}`);
               
               // Add bot response to Gemini history in correct format
               setGeminiHistory([
