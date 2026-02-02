@@ -1941,10 +1941,15 @@
           // Strip emoji from maturity label
           const maturityLabel = maturity.replace(/[🍷🟢⚠️]/g, '').trim();
 
+          // Ref for the scrollable modal content
+          const modalContentRef = React.useRef(null);
+
           // FIX 1 & 2: Scroll to top when modal opens, and add browser history
           React.useEffect(() => {
-            // Scroll modal content to top
-            window.scrollTo({ top: 0, behavior: 'instant' });
+            // Scroll the MODAL CONTENT to top (not the window!)
+            if (modalContentRef.current) {
+              modalContentRef.current.scrollTop = 0;
+            }
             
             // Add history entry so back button closes modal instead of navigating away
             const handlePopState = (e) => {
@@ -2121,7 +2126,8 @@
               onClick={handleClose}
             >
               <div 
-                className={`${colors.bg} border-0 sm:border-8 ${colors.border} max-w-full sm:max-w-6xl w-full min-h-full sm:min-h-0 sm:max-h-[95vh] overflow-y-auto`}
+                ref={modalContentRef}
+                className={`${colors.bg} max-w-full sm:max-w-6xl w-full min-h-full sm:min-h-0 sm:max-h-[95vh] overflow-y-auto sm:border-8 ${colors.border}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* HEADER WITH MASSIVE IMAGE */}
