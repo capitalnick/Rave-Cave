@@ -1610,6 +1610,7 @@
                   wine={selectedWine} 
                   wines={wines}
                   setWines={setWines}
+                  setSelectedWine={setSelectedWine}
                   onClose={() => setSelectedWine(null)}
                   getMaturityStatus={getMaturityStatus}
                   getWineColors={getWineColors}
@@ -1862,7 +1863,7 @@
           );
         };
 
-        const WineModal = ({ wine, wines, setWines, onClose, getMaturityStatus, getWineColors }) => {
+        const WineModal = ({ wine, wines, setWines, setSelectedWine, onClose, getMaturityStatus, getWineColors }) => {
           const maturity = getMaturityStatus(wine['Drink From'], wine['Drink Until']);
           const colors = getWineColors(wine['Wine type']);
           const vivinoRating = parseFloat(wine['Vivino Rating']);
