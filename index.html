@@ -902,11 +902,11 @@
               if (!botReply || botReply.trim() === '') {
                 console.error('No valid reply found in response. Full data:', JSON.stringify(data));
                 // Remove thinking message and add error
-                setMessages(prev => prev.filter(msg => msg.id !== thinkingId).concat({ 
+                setMessages(prev => prev.filter(msg => msg.id !== thinkingId).concat([{ 
                   id: `msg-${messageIdRef.current++}`,
                   type: 'bot', 
                   text: '🍷 My apologies, I seem to have momentarily lost my train of thought. Could you rephrase that?' 
-                }]);
+                }]));
                 setLoading(false);
                 return;
               }
@@ -937,11 +937,11 @@
             } catch (error) {
               console.error('Chat error details:', error);
               // Remove thinking message and add error
-              setMessages(prev => prev.filter(msg => msg.id !== thinkingId).concat({ 
+              setMessages(prev => prev.filter(msg => msg.id !== thinkingId).concat([{ 
                 id: `msg-${messageIdRef.current++}`,
                 type: 'bot', 
                 text: `⚠️ Error: ${error.message}` 
-              }));
+              }]));
             } finally {
               setLoading(false);
             }
