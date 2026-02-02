@@ -2122,12 +2122,12 @@
 
           return (
             <div 
-              className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto"
+              className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[200] flex items-center justify-center p-0 sm:p-4"
               onClick={handleClose}
             >
               <div 
                 ref={modalContentRef}
-                className={`${colors.bg} max-w-full sm:max-w-6xl w-full min-h-full sm:min-h-0 sm:max-h-[95vh] overflow-y-auto sm:border-8 ${colors.border}`}
+                className={`${colors.bg} max-w-full sm:max-w-6xl w-full h-full sm:h-auto sm:max-h-[95vh] overflow-y-auto sm:border-8 ${colors.border}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* HEADER WITH MASSIVE IMAGE */}
@@ -2234,12 +2234,12 @@
                   {/* EDITABLE DATA BLOCKS */}
                   <div className="grid md:grid-cols-2 gap-6 pt-8 border-t-8 border-black">
                     {allFields.map(([key, value]) => (
-                      <div key={key} className="space-y-2 p-4 border-4 border-black bg-white">
+                      <div key={key} className="space-y-2 p-4 border-4 border-black bg-white min-w-0">
                         <dt className="font-mono text-xs uppercase tracking-widest font-bold"
                             style={{color: '#FF006E'}}>
                           {key}
                         </dt>
-                        <dd className="font-mono text-base text-black">
+                        <dd className="font-mono text-base text-black break-words overflow-wrap-anywhere">
                           {editingField === key ? (
                             <div className="flex gap-2">
                               <input
@@ -2248,14 +2248,14 @@
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onKeyPress={(e) => handleKeyPress(e, key)}
                                 onFocus={(e) => e.target.select()}
-                                className="flex-1 px-2 py-1 border-2 border-black font-mono"
+                                className="flex-1 px-2 py-1 border-2 border-black font-mono min-w-0"
                                 autoFocus
                                 disabled={updating}
                               />
                               <button
                                 onClick={() => handleUpdate(key)}
                                 disabled={updating}
-                                className="px-4 py-1 bg-[#CCFF00] border-2 border-black font-mono text-sm uppercase font-bold hover:bg-[#FF006E] hover:text-white transition-colors disabled:opacity-50"
+                                className="px-4 py-1 bg-[#CCFF00] border-2 border-black font-mono text-sm uppercase font-bold hover:bg-[#FF006E] hover:text-white transition-colors disabled:opacity-50 flex-shrink-0"
                               >
                                 {updating ? '...' : 'Update'}
                               </button>
@@ -2263,7 +2263,7 @@
                           ) : (
                             <span 
                               onClick={() => handleFieldClick(key, value)}
-                              className="cursor-pointer hover:bg-yellow-100 block p-1 -m-1"
+                              className="cursor-pointer hover:bg-yellow-100 block p-1 -m-1 break-words"
                             >
                               {key === 'Bottle Price' ? (
                                 <span className="font-bold text-lg">{formatPrice(value)}</span>
