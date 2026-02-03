@@ -861,12 +861,45 @@
               ];
             }
             
+            // Save image for upload (before clearing)
+            const imageToUpload = selectedImage;
+            
             // Clear image after adding to message
             removeImage();
             
             setLoading(true);
 
             try {
+              // If there's an image, upload to Drive first
+              let driveImageId = null;
+              if (imageToUpload) {
+                console.log('📤 Uploading image to Drive...');
+                const uploadResponse = await fetch(GEMINI_ENDPOINT, {
+                  method: 'POST',
+                  mode: 'cors',
+                  headers: { 'Content-Type': 'text/plain' },
+                  body: JSON.stringify({
+                    action: 'uploadImage',
+                    imageData: `data:image/jpeg;base64,${imageToUpload}`,
+                    filename: `wine_label_${Date.now()}.jpg`
+                  })
+                });
+                
+                const uploadResult = await uploadResponse.json();
+                if (uploadResult.success && uploadResult.driveId) {
+                  driveImageId = uploadResult.driveId;
+                  console.log('✅ Image uploaded to Drive:', driveImageId);
+                  
+                  // Add Drive ID to message text so Gemini knows about it
+                  if (newGeminiHistory[newGeminiHistory.length - 1].parts[1]) {
+                    newGeminiHistory[newGeminiHistory.length - 1].parts[1].text += 
+                      ` [Image uploaded with ID: ${driveImageId}]`;
+                  }
+                } else {
+                  console.warn('⚠️ Image upload failed, continuing without Drive ID');
+                }
+              }
+              
               console.log('Sending to Gemini with history:', newGeminiHistory);
               
               const apiStartTime = Date.now();
