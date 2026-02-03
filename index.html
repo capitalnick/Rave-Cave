@@ -535,6 +535,7 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://evanw.github.io/glfx.js/glfx.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <script type="text/babel">
@@ -1169,6 +1170,231 @@
                 // Otherwise continue to next proxy
               }
             }
+          };
+
+          // Image processing for wine labels
+          useEffect(() => {
+            // Start polling for images to process after wines load
+            if (wines.length > 0) {
+              const interval = setInterval(() => {
+                processQueuedImages();
+              }, 5000); // Check every 5 seconds
+              
+              // Process immediately on load
+              processQueuedImages();
+              
+              return () => clearInterval(interval);
+            }
+          }, [wines]);
+
+          const processQueuedImages = async () => {
+            const needsProcessing = wines.filter(w => 
+              w['Processing Status'] === 'needs_processing' && w['Label image']
+            );
+            
+            if (needsProcessing.length === 0) return;
+            
+            console.log(`🎨 Found ${needsProcessing.length} images to process`);
+            
+            // Process one at a time to avoid overwhelming the browser
+            for (const wine of needsProcessing.slice(0, 1)) {
+              await processWineImage(wine);
+            }
+          };
+
+          const processWineImage = async (wine) => {
+            try {
+              console.log(`🎨 Processing: ${wine.Producer} ${wine.Vintage}`);
+              
+              // Find row number
+              const wineIndex = wines.findIndex(w => 
+                w.Producer === wine.Producer && 
+                w.Vintage === wine.Vintage && 
+                w['Wine name'] === wine['Wine name']
+              );
+              
+              if (wineIndex === -1) {
+                console.error('Wine not found in array');
+                return;
+              }
+              
+              const rowNumber = wineIndex + 2; // +2 for header and 0-indexing
+              
+              // 1. Load the original image
+              const imageUrl = getDirectImageUrl(wine['Label image']);
+              const img = await loadImageFromUrl(imageUrl);
+              
+              // 2. Process with glfx.js
+              const processedDataUrl = await processImageWithGlfx(img);
+              
+              // 3. Convert data URL to blob
+              const blob = dataURLToBlob(processedDataUrl);
+              
+              // 4. Upload to Apps Script
+              const newImageUrl = await uploadProcessedImage(blob, wine);
+              
+              // 5. Update sheet
+              await updateSheetWithProcessedImage(rowNumber, newImageUrl);
+              
+              // 6. Update local state
+              const updatedWines = [...wines];
+              updatedWines[wineIndex]['Label image'] = newImageUrl;
+              updatedWines[wineIndex]['Processing Status'] = 'processed';
+              setWines(updatedWines);
+              
+              console.log(`✅ Processed: ${wine.Producer} ${wine.Vintage}`);
+              
+            } catch (error) {
+              console.error(`❌ Processing failed for ${wine.Producer} ${wine.Vintage}:`, error);
+              
+              // Mark as failed in local state
+              const wineIndex = wines.findIndex(w => 
+                w.Producer === wine.Producer && 
+                w.Vintage === wine.Vintage
+              );
+              if (wineIndex !== -1) {
+                const updatedWines = [...wines];
+                updatedWines[wineIndex]['Processing Status'] = 'failed';
+                setWines(updatedWines);
+              }
+            }
+          };
+
+          const loadImageFromUrl = (url) => {
+            return new Promise((resolve, reject) => {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+              img.src = url;
+            });
+          };
+
+          const processImageWithGlfx = async (img) => {
+            try {
+              // Create glfx canvas
+              const canvas = window.fx.canvas();
+              
+              // Load image as texture
+              const texture = canvas.texture(img);
+              
+              // Draw original
+              canvas.draw(texture);
+              
+              // Auto-detect label boundaries using contrast
+              const bounds = detectLabelBounds(canvas, img.width, img.height);
+              
+              // Apply perspective correction if needed
+              if (bounds) {
+                canvas.draw(texture).perspective(
+                  bounds.corners,
+                  [0, 0, bounds.width, 0, bounds.width, bounds.height, 0, bounds.height]
+                ).update();
+              }
+              
+              // Get the processed canvas
+              const processedCanvas = canvas;
+              
+              // Crop to square
+              const size = Math.min(processedCanvas.width, processedCanvas.height);
+              const x = (processedCanvas.width - size) / 2;
+              const y = (processedCanvas.height - size) / 2;
+              
+              const finalCanvas = document.createElement('canvas');
+              finalCanvas.width = size;
+              finalCanvas.height = size;
+              const ctx = finalCanvas.getContext('2d');
+              ctx.drawImage(processedCanvas, x, y, size, size, 0, 0, size, size);
+              
+              return finalCanvas.toDataURL('image/jpeg', 0.9);
+              
+            } catch (error) {
+              console.error('glfx processing failed, using simpler approach:', error);
+              
+              // Fallback: Simple center crop to square
+              const size = Math.min(img.width, img.height);
+              const x = (img.width - size) / 2;
+              const y = (img.height - size) / 2;
+              
+              const canvas = document.createElement('canvas');
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, x, y, size, size, 0, 0, size, size);
+              
+              return canvas.toDataURL('image/jpeg', 0.9);
+            }
+          };
+
+          const detectLabelBounds = (canvas, width, height) => {
+            // Simple center-weighted crop (placeholder)
+            // In a real implementation, this would use edge detection
+            const margin = 0.1;
+            return {
+              corners: [
+                width * margin, height * margin,
+                width * (1 - margin), height * margin,
+                width * (1 - margin), height * (1 - margin),
+                width * margin, height * (1 - margin)
+              ],
+              width: width * (1 - 2 * margin),
+              height: height * (1 - 2 * margin)
+            };
+          };
+
+          const dataURLToBlob = (dataURL) => {
+            const arr = dataURL.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+          };
+
+          const uploadProcessedImage = async (blob, wine) => {
+            // Convert blob back to data URL for upload
+            const reader = new FileReader();
+            const dataUrl = await new Promise((resolve) => {
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+            
+            // Upload to Drive via Apps Script
+            const response = await fetch(SHEET_API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'uploadProcessedImage',
+                imageData: dataUrl,
+                filename: `${wine.Producer}_${wine.Vintage}_processed.jpg`
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              console.log('✅ Uploaded processed image to Drive');
+              return result.imageUrl;
+            } else {
+              throw new Error('Upload failed');
+            }
+          };
+
+          const updateSheetWithProcessedImage = async (rowNumber, imageUrl) => {
+            const response = await fetch(SHEET_API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'updateProcessedImage',
+                row: rowNumber,
+                imageUrl: imageUrl
+              })
+            });
+            
+            return response.json();
           };
 
           const getMaturityStatus = (drinkFrom, drinkUntil) => {
@@ -1827,6 +2053,23 @@
                   }}
                 >
                   SOMMELIER'S FAVE
+                </div>
+              )}
+              
+              {/* PROCESSING BADGE */}
+              {wine['Processing Status'] === 'needs_processing' && (
+                <div 
+                  className="absolute top-3 left-3 z-10
+                             bg-yellow-400 text-black
+                             px-3 py-1.5 text-xs font-mono font-bold uppercase
+                             border-2 border-black
+                             flex items-center gap-1.5"
+                  style={{
+                    boxShadow: '2px 2px 0 rgba(0,0,0,0.3)'
+                  }}
+                >
+                  <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
+                  Processing
                 </div>
               )}
               
