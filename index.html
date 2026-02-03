@@ -873,30 +873,36 @@
               // If there's an image, upload to Drive first
               let driveImageId = null;
               if (imageToUpload) {
-                console.log('📤 Uploading image to Drive...');
-                const uploadResponse = await fetch(GEMINI_ENDPOINT, {
-                  method: 'POST',
-                  mode: 'cors',
-                  headers: { 'Content-Type': 'text/plain' },
-                  body: JSON.stringify({
-                    action: 'uploadImage',
-                    imageData: `data:image/jpeg;base64,${imageToUpload}`,
-                    filename: `wine_label_${Date.now()}.jpg`
-                  })
-                });
-                
-                const uploadResult = await uploadResponse.json();
-                if (uploadResult.success && uploadResult.driveId) {
-                  driveImageId = uploadResult.driveId;
-                  console.log('✅ Image uploaded to Drive:', driveImageId);
+                try {
+                  console.log('📤 Uploading image to Drive...');
+                  const uploadResponse = await fetch(GEMINI_ENDPOINT, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                      action: 'uploadImage',
+                      imageData: `data:image/jpeg;base64,${imageToUpload}`,
+                      filename: `wine_label_${Date.now()}.jpg`
+                    })
+                  });
                   
-                  // Add Drive ID to message text so Gemini knows about it
-                  if (newGeminiHistory[newGeminiHistory.length - 1].parts[1]) {
-                    newGeminiHistory[newGeminiHistory.length - 1].parts[1].text += 
-                      ` [Image uploaded with ID: ${driveImageId}]`;
+                  const uploadResult = await uploadResponse.json();
+                  if (uploadResult.success && uploadResult.driveId) {
+                    driveImageId = uploadResult.driveId;
+                    console.log('✅ Image uploaded to Drive:', driveImageId);
+                    
+                    // Add Drive ID to message text so Gemini knows about it
+                    if (newGeminiHistory[newGeminiHistory.length - 1].parts[1]) {
+                      newGeminiHistory[newGeminiHistory.length - 1].parts[1].text += 
+                        ` [Image uploaded with ID: ${driveImageId}]`;
+                    }
+                  } else {
+                    console.error('❌ Image upload failed:', uploadResult.error || 'Unknown error');
+                    console.warn('⚠️ Continuing without Drive ID - wine will be added without image');
                   }
-                } else {
-                  console.warn('⚠️ Image upload failed, continuing without Drive ID');
+                } catch (uploadError) {
+                  console.error('❌ Image upload exception:', uploadError);
+                  console.warn('⚠️ Continuing without Drive ID - wine will be added without image');
                 }
               }
               
@@ -1205,33 +1211,117 @@
             }
           };
 
-          // Image processing for wine labels
+          // Background processing for wine labels and metadata
           useEffect(() => {
-            // Start polling for images to process after wines load
+            // Start polling for processing tasks after wines load
             if (wines.length > 0) {
               const interval = setInterval(() => {
-                processQueuedImages();
+                processQueuedTasks();
               }, 5000); // Check every 5 seconds
               
               // Process immediately on load
-              processQueuedImages();
+              processQueuedTasks();
               
               return () => clearInterval(interval);
             }
           }, [wines]);
 
-          const processQueuedImages = async () => {
-            const needsProcessing = wines.filter(w => 
+          const processQueuedTasks = async () => {
+            // Handle image processing
+            const needsImageProcessing = wines.filter(w => 
               w['Processing Status'] === 'needs_processing' && w['Label image']
             );
             
-            if (needsProcessing.length === 0) return;
+            // Handle metadata enrichment
+            const needsEnrichment = wines.filter(w =>
+              w['Processing Status'] === 'needs_enrichment'
+            );
             
-            console.log(`🎨 Found ${needsProcessing.length} images to process`);
+            if (needsImageProcessing.length === 0 && needsEnrichment.length === 0) {
+              // Uncomment to debug: console.log('✅ No wines need processing');
+              return;
+            }
             
-            // Process one at a time to avoid overwhelming the browser
-            for (const wine of needsProcessing.slice(0, 1)) {
-              await processWineImage(wine);
+            console.log(`🎨 Processing queue: ${needsImageProcessing.length} images, ${needsEnrichment.length} metadata`);
+            
+            // Process one image at a time
+            if (needsImageProcessing.length > 0) {
+              console.log(`📸 Starting image processing for: ${needsImageProcessing[0].Producer} ${needsImageProcessing[0].Vintage}`);
+              await processWineImage(needsImageProcessing[0]);
+            }
+            
+            // Process one metadata enrichment at a time
+            if (needsEnrichment.length > 0) {
+              await enrichWineMetadata(needsEnrichment[0]);
+            }
+          };
+
+          const enrichWineMetadata = async (wine) => {
+            try {
+              console.log(`🧠 Enriching metadata: ${wine.Producer} ${wine.Vintage}`);
+              
+              // Find row number
+              const wineIndex = wines.findIndex(w => 
+                w.Producer === wine.Producer && 
+                w.Vintage === wine.Vintage && 
+                w['Wine name'] === wine['Wine name']
+              );
+              
+              if (wineIndex === -1) {
+                console.error('Wine not found in array');
+                return;
+              }
+              
+              const rowNumber = wineIndex + 2; // +2 for header and 0-indexing
+              
+              // Call enrichment endpoint
+              const response = await fetch(SHEET_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'enrichWineMetadata',
+                  rowNumber: rowNumber,
+                  wine: {
+                    producer: wine.Producer,
+                    vintage: wine.Vintage,
+                    type: wine['Wine type'],
+                    cepage: wine['Cépage'],
+                    region: wine.Region,
+                    country: wine.Country
+                  }
+                })
+              });
+              
+              const result = await response.json();
+              
+              if (result.success) {
+                // Update local state
+                const updatedWines = [...wines];
+                updatedWines[wineIndex]['Drink From'] = result.metadata.drinkFrom;
+                updatedWines[wineIndex]['Drink Until'] = result.metadata.drinkUntil;
+                updatedWines[wineIndex]['Maturity'] = result.metadata.maturity;
+                updatedWines[wineIndex]['Tasting Notes'] = result.metadata.tastingNotes;
+                updatedWines[wineIndex]['Processing Status'] = 'enriched';
+                setWines(updatedWines);
+                
+                console.log(`✅ Enriched: ${wine.Producer} ${wine.Vintage}`);
+              } else {
+                throw new Error(result.error || 'Enrichment failed');
+              }
+              
+            } catch (error) {
+              console.error(`❌ Enrichment failed for ${wine.Producer} ${wine.Vintage}:`, error);
+              
+              // Mark as failed
+              const wineIndex = wines.findIndex(w => 
+                w.Producer === wine.Producer && 
+                w.Vintage === wine.Vintage
+              );
+              if (wineIndex !== -1) {
+                const updatedWines = [...wines];
+                updatedWines[wineIndex]['Processing Status'] = 'enrichment_failed';
+                setWines(updatedWines);
+              }
             }
           };
 
@@ -2090,7 +2180,7 @@
               )}
               
               {/* PROCESSING BADGE */}
-              {wine['Processing Status'] === 'needs_processing' && (
+              {(wine['Processing Status'] === 'needs_processing' || wine['Processing Status'] === 'needs_enrichment') && (
                 <div 
                   className="absolute top-3 left-3 z-10
                              bg-yellow-400 text-black
@@ -2102,7 +2192,7 @@
                   }}
                 >
                   <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
-                  Processing
+                  {wine['Processing Status'] === 'needs_processing' ? 'Processing' : 'Analyzing...'}
                 </div>
               )}
               
